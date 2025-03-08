@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::i2c::read_byte;
+use crate::i2c;
 use anyhow::Result;
 
 pub mod mpu9150 {
@@ -370,14 +370,54 @@ const DMP_MEMORY_BANK_SIZE : u16 = 256;
 const DMP_MEMORY_CHUNK_SIZE : u8 = 16;
 
 
-struct MPU9250 {
-    dev_address : u8
+pub struct MPU9250 {
+    pub dev_address : u16,
+}
+impl MPU9250 {
+  pub fn new(dev_address : u16) -> Self {
+    Self {
+        dev_address: dev_address,
+    }
+  }
+
+  pub fn initialize(&mut self) -> Result<()> {
+    self.set_clock_source(CLOCK_PLL_XGYRO);
+    return Ok(());
+  }
+
+  pub fn test_connection(&mut self) -> bool {
+    match self.get_device_id() { 
+        Ok(val) => return val == 0x71,
+        Err(_) => return false,
+    }
+  }
+
+  pub fn set_clock_source(&mut self, source : u8) -> Result<()> {
+    return i2c::write_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, source);
+  }
+
+  pub fn set_full_scale_gyro_range(&mut self, range : u8) -> Result<()> {
+    return i2c::write_bits(self.dev_address, RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH, range);
+  }
+
+  pub fn set_full_scale_accel_range(&mut self, range : u8) -> Result<()> {
+    return i2c::write_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_AFS_SEL_BIT, ACONFIG_AFS_SEL_LENGTH, range);
+  }
+
+  pub fn set_sleep_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled as u8);
+  }
+
+  pub fn get_device_id(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_WHO_AM_I);
+  }
+
 }
 
 pub fn read_x_accelerometer() -> Result<u16> {
 
-    let high = read_byte(DEFAULT_ADDRESS, RA_ACCEL_XOUT_H)?;
-    let low = read_byte(DEFAULT_ADDRESS, RA_ACCEL_XOUT_L)?;
+    let high = i2c::read_byte(DEFAULT_ADDRESS, RA_ACCEL_XOUT_H)?;
+    let low = i2c::read_byte(DEFAULT_ADDRESS, RA_ACCEL_XOUT_L)?;
     let data : u16 = ((high as u16) << 8) + (low as u16);
     println!("Read ACCELEROMETER data: {}", data);
     return Ok(data);
