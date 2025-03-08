@@ -35,6 +35,10 @@ pub fn read_bits(dev_addr : u16, reg_addr : u8, bit_start : u8, length : u8) -> 
     return Ok(b);
 }
 
+pub fn read_bit(dev_addr : u16, reg_addr : u8, bit_start : u8) -> Result<u8> {
+    return read_bits(dev_addr, reg_addr, bit_start, 1);
+}
+
 pub fn write_bits(dev_addr : u16, reg_addr : u8, bit_start : u8, length : u8, mut data : u8) -> Result<()> {
     let mut b = read_byte(dev_addr, reg_addr)?;
     println!("bit_start: {}", bit_start);
@@ -44,7 +48,7 @@ pub fn write_bits(dev_addr : u16, reg_addr : u8, bit_start : u8, length : u8, mu
     data &= mask as u8;
     b &= !mask as u8;
     b |= data;
-    return write_byte(dev_addr, reg_addr, b)
+    return write_byte(dev_addr, reg_addr, b);
 }
 
 pub fn write_bit(dev_addr : u16, reg_addr : u8, bit_start : u8, data : u8) -> Result<()> {
