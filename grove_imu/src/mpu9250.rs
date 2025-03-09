@@ -35,17 +35,18 @@ THE SOFTWARE.
 
 use crate::i2c;
 use anyhow::Result;
+use anyhow::anyhow;
 
 pub mod mpu9150 {
 
     //Magnetometer Registers
     const RA_MAG_ADDRESS : u16 = 0x0C;
-    const RA_MAG_XOUT_L	 : u8 = 0x03;
-    const RA_MAG_XOUT_H	 : u8 = 0x04;
-    const RA_MAG_YOUT_L	 : u8 = 0x05;
-    const RA_MAG_YOUT_H	 : u8 = 0x06;
-    const RA_MAG_ZOUT_L	 : u8 = 0x07;
-    const RA_MAG_ZOUT_H	 : u8 = 0x08;
+    const RA_MAG_XOUT_L   : u8 = 0x03;
+    const RA_MAG_XOUT_H   : u8 = 0x04;
+    const RA_MAG_YOUT_L   : u8 = 0x05;
+    const RA_MAG_YOUT_H   : u8 = 0x06;
+    const RA_MAG_ZOUT_L   : u8 = 0x07;
+    const RA_MAG_ZOUT_H   : u8 = 0x08;
 
 }
 
@@ -1164,12 +1165,136 @@ impl MPU9250 {
     return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_P_NSR_BIT, enabled as u8);
   }
 
-
-
-
-
-
-
+  /** Get I2C master clock speed.
+   * I2C_MST_CLK is a 4 bit unsigned value which configures a divider on the
+   * MPU-60X0 internal 8MHz clock. It sets the I2C master clock speed according to
+   * the following table:
+   *
+   * <pre>
+   * I2C_MST_CLK | I2C Master Clock Speed | 8MHz Clock Divider
+   * ------------+------------------------+-------------------
+   * 0           | 348kHz                 | 23
+   * 1           | 333kHz                 | 24
+   * 2           | 320kHz                 | 25
+   * 3           | 308kHz                 | 26
+   * 4           | 296kHz                 | 27
+   * 5           | 286kHz                 | 28
+   * 6           | 276kHz                 | 29
+   * 7           | 267kHz                 | 30
+   * 8           | 258kHz                 | 31
+   * 9           | 500kHz                 | 16
+   * 10          | 471kHz                 | 17
+   * 11          | 444kHz                 | 18
+   * 12          | 421kHz                 | 19
+   * 13          | 400kHz                 | 20
+   * 14          | 381kHz                 | 21
+   * 15          | 364kHz                 | 22
+   * </pre>
+   *
+   * @return Current I2C master clock speed
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn get_master_clock_speed(&mut self) -> Result<u8> {
+    return i2c::read_bits(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_CLK_BIT, I2C_MST_CLK_LENGTH);
+  }
+  /** Set I2C master clock speed.
+   * @reparam speed Current I2C master clock speed
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn set_master_clock_speed(&mut self, speed : u8) -> Result<()> {
+    return i2c::write_bits(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_CLK_BIT, I2C_MST_CLK_LENGTH, speed);
+  }
+  
+  // I2C_SLV* registers (Slave 0-3)
+  
+  /** Get the I2C address of the specified slave (0-3).
+   * Note that Bit 7 (MSB) controls read/write mode. If Bit 7 is set, it's a read
+   * operation, and if it is cleared, then it's a write operation. The remaining
+   * bits (6-0) are the 7-bit device address of the slave device.
+   *
+   * In read mode, the result of the read is placed in the lowest available 
+   * EXT_SENS_DATA register. For further information regarding the allocation of
+   * read results, please refer to the EXT_SENS_DATA register description
+   * (Registers 73 - 96).
+   *
+   * The MPU-9250 supports a total of five slaves, but Slave 4 has unique
+   * characteristics, and so it has its own functions (getSlave4* and setSlave4*).
+   *
+   * I2C data transactions are performed at the Sample Rate, as defined in
+   * Register 25. The user is responsible for ensuring that I2C data transactions
+   * to and from each enabled Slave can be completed within a single period of the
+   * Sample Rate.
+   *
+   * The I2C slave access rate can be reduced relative to the Sample Rate. This
+   * reduced access rate is determined by I2C_MST_DLY (Register 52). Whether a
+   * slave's access rate is reduced relative to the Sample Rate is determined by
+   * I2C_MST_DELAY_CTRL (Register 103).
+   *
+   * The processing order for the slaves is fixed. The sequence followed for
+   * processing the slaves is Slave 0, Slave 1, Slave 2, Slave 3 and Slave 4. If a
+   * particular Slave is disabled it will be skipped.
+   *
+   * Each slave can either be accessed at the sample rate or at a reduced sample
+   * rate. In a case where some slaves are accessed at the Sample Rate and some
+   * slaves are accessed at the reduced rate, the sequence of accessing the slaves
+   * (Slave 0 to Slave 4) is still followed. However, the reduced rate slaves will
+   * be skipped if their access rate dictates that they should not be accessed
+   * during that particular cycle. For further information regarding the reduced
+   * access rate, please refer to Register 52. Whether a slave is accessed at the
+   * Sample Rate or at the reduced rate is determined by the Delay Enable bits in
+   * Register 103.
+   *
+   * @param num Slave number (0-3)
+   * @return Current address for specified slave
+   * @see MPU9250_RA_I2C_SLV0_ADDR
+   */
+  pub fn get_slave_address(&mut self, num : u8) -> Result<u8> {
+    if (num > 3) {
+      return Err(anyhow!("Slave number must be less than 4"));
+    }
+    return i2c::read_byte(self.dev_address, RA_I2C_SLV0_ADDR + num*3);
+  }
+  /** Set the I2C address of the specified slave (0-3).
+   * @param num Slave number (0-3)
+   * @param address New address for specified slave
+   * @see getSlaveAddress()
+   * @see MPU9250_RA_I2C_SLV0_ADDR
+   */
+  pub fn set_slave_address(&mut self, num : u8, address : u8) -> Result<()> {
+    if (num > 3) {
+		  return Err(anyhow!("Slave number must be less than 4"));
+    }
+    return i2c::write_byte(self.dev_address, RA_I2C_SLV0_ADDR + num*3, address);
+  }
+  /** Get the active internal register for the specified slave (0-3).
+   * Read/write operations for this slave will be done to whatever internal
+   * register address is stored in this MPU register.
+   *
+   * The MPU-9250 supports a total of five slaves, but Slave 4 has unique
+   * characteristics, and so it has its own functions.
+   *
+   * @param num Slave number (0-3)
+   * @return Current active register for specified slave
+   * @see MPU9250_RA_I2C_SLV0_REG
+   */
+  pub fn get_slave_register(&mut self, num : u8) -> Result<u8> {
+    if (num > 3) {
+		  return Err(anyhow!("Slave number must be less than 4"));
+    }
+    return i2c::read_byte(self.dev_address, RA_I2C_SLV0_REG + num*3);
+  }
+  /** Set the active internal register for the specified slave (0-3).
+   * @param num Slave number (0-3)
+   * @param register New active register for specified slave
+   * @see getSlaveRegister()
+   * @see MPU9250_RA_I2C_SLV0_REG
+   */
+  pub fn set_slave_register(&mut self, num : u8, register : u8) -> Result<()> {
+    if (num > 3) {
+		  return Err(anyhow!("Slave number must be less than 4"));
+    }
+    return i2c::write_byte(self.dev_address, RA_I2C_SLV0_REG + num*3, register);
+  }
 
 
 
