@@ -1296,6 +1296,682 @@ impl MPU9250 {
     return i2c::write_byte(self.dev_address, RA_I2C_SLV0_REG + num*3, register);
   }
 
+  /** Get whether the specified slave (0-3) is enabled.
+  * @param num Slave number (0-3)
+  * @return True if enabled, false otherwise
+  * @see MPU9250_RA_I2C_SLV0_CTRL
+  */
+ pub fn get_slave_enabled(&self, num: u8) -> Result<u8> {
+ 		if num > 3 {
+ 				return Err(anyhow!("Slave number must be between 0 and 3"));
+ 		}
+ 		i2c::read_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_EN_BIT)
+ }
+ 
+ /** Set whether the specified slave (0-3) is enabled.
+  * @param num Slave number (0-3)
+  * @param enabled True to enable, false to disable
+  * @see MPU9250_RA_I2C_SLV0_CTRL
+  */
+ pub fn set_slave_enabled(&self, num: u8, enabled: bool) -> Result<()> {
+ 		if num > 3 {
+ 				return Err(anyhow!("Slave number must be between 0 and 3"));
+ 		}
+ 		i2c::write_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_EN_BIT, enabled as u8)
+ }
+
+ /** Get word pair byte-swapping enabled for the specified slave (0-3).
+  * When set to 1, this bit enables byte swapping. When byte swapping is enabled,
+  * the high and low bytes of a word pair are swapped. Please refer to
+  * I2C_SLV0_GRP for the pairing convention of the word pairs. When cleared to 0,
+  * bytes transferred to and from Slave 0 will be written to EXT_SENS_DATA
+  * registers in the order they were transferred.
+  *
+  * @param num Slave number (0-3)
+  * @return Current word pair byte-swapping enabled value for specified slave
+  * @see MPU9250_RA_I2C_SLV0_CTRL
+  */
+ pub fn get_slave_word_byte_swap(&self, num: u8) -> Result<u8> {
+     if num > 3 {
+         return Err(anyhow!("Slave number must be between 0 and 3"));
+     }
+     i2c::read_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_BYTE_SW_BIT)
+ }
+ 
+ /** Set word pair byte-swapping enabled for the specified slave (0-3).
+  * @param num Slave number (0-3)
+  * @param enabled New word pair byte-swapping enabled value for specified slave
+  * @see getSlaveWordByteSwap()
+  * @see MPU9250_RA_I2C_SLV0_CTRL
+  */
+ pub fn set_slave_word_byte_swap(&self, num: u8, enabled: bool) -> Result<()> {
+     if num > 3 {
+         return Err(anyhow!("Slave number must be between 0 and 3"));
+     }
+     i2c::write_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_BYTE_SW_BIT, enabled as u8)
+ }
+
+/** Get write mode for the specified slave (0-3).
+ * When set to 1, the transaction will read or write data only. When cleared to
+ * 0, the transaction will write a register address prior to reading or writing
+ * data. This should equal 0 when specifying the register address within the
+ * Slave device to/from which the ensuing data transaction will take place.
+ *
+ * @param num Slave number (0-3)
+ * @return Current write mode for specified slave (0 = register address + data, 1 = data only)
+ * @see MPU9250_RA_I2C_SLV0_CTRL
+ */
+pub fn get_slave_write_mode(&self, num: u8) -> Result<u8> {
+    if num > 3 {
+        return Err(anyhow!("Slave number must be between 0 and 3"));
+    }
+    i2c::read_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_REG_DIS_BIT)
+}
+
+/** Set write mode for the specified slave (0-3).
+ * @param num Slave number (0-3)
+ * @param mode New write mode for specified slave (0 = register address + data, 1 = data only)
+ * @see getSlaveWriteMode()
+ * @see MPU9250_RA_I2C_SLV0_CTRL
+ */
+pub fn set_slave_write_mode(&self, num: u8, mode: bool) -> Result<()> {
+    if num > 3 {
+        return Err(anyhow!("Slave number must be between 0 and 3"));
+    }
+    i2c::write_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_REG_DIS_BIT, mode as u8)
+}
+
+/** Get word pair grouping order offset for the specified slave (0-3).
+ * This specifies the grouping order of word pairs received from registers.
+ * When cleared to 0, bytes from register addresses 0 and 1, 2 and 3, etc (even,
+ * then odd register addresses) are paired to form a word. When set to 1, bytes
+ * from register addresses are paired 1 and 2, 3 and 4, etc. (odd, then even
+ * register addresses) are paired to form a word.
+ *
+ * @param num Slave number (0-3)
+ * @return Current word pair grouping order offset for specified slave
+ * @see MPU9250_RA_I2C_SLV0_CTRL
+ */
+pub fn get_slave_word_group_offset(&self, num: u8) -> Result<u8> {
+    if num > 3 {
+        return Err(anyhow!("Slave number must be between 0 and 3"));
+    }
+    i2c::read_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_GRP_BIT)
+}
+
+/** Set word pair grouping order offset for the specified slave (0-3).
+ * @param num Slave number (0-3)
+ * @param enabled New word pair grouping order offset for specified slave
+ * @see getSlaveWordGroupOffset()
+ * @see MPU9250_RA_I2C_SLV0_CTRL
+ */
+pub fn set_slave_word_group_offset(&self, num: u8, enabled: bool) -> Result<()> {
+    if num > 3 {
+        return Err(anyhow!("Slave number must be between 0 and 3"));
+    }
+    i2c::write_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_GRP_BIT, enabled as u8)
+}
+
+/** Get number of bytes to read for the specified slave (0-3).
+ * Specifies the number of bytes transferred to and from Slave 0. Clearing this
+ * bit to 0 is equivalent to disabling the register by writing 0 to I2C_SLV0_EN.
+ * @param num Slave number (0-3)
+ * @return Number of bytes to read for specified slave
+ * @see MPU9250_RA_I2C_SLV0_CTRL
+ */
+pub fn get_slave_data_length(&self, num: u8) -> Result<u8> {
+    if num > 3 {
+        return Err(anyhow!("Slave number must be between 0 and 3"));
+    }
+    i2c::read_bits(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_LEN_BIT, I2C_SLV_LEN_LENGTH)
+}
+
+/** Set number of bytes to read for the specified slave (0-3).
+ * @param num Slave number (0-3)
+ * @param length Number of bytes to read for specified slave
+ * @see getSlaveDataLength()
+ * @see MPU9250_RA_I2C_SLV0_CTRL
+ */
+pub fn set_slave_data_length(&self, num: u8, length: u8) -> Result<()> {
+    if num > 3 {
+        return Err(anyhow!("Slave number must be between 0 and 3"));
+    }
+    i2c::write_bits(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_LEN_BIT, I2C_SLV_LEN_LENGTH, length)
+}
+
+/** Get the I2C address of Slave 4.
+ * Note that Bit 7 (MSB) controls read/write mode. If Bit 7 is set, it's a read
+ * operation, and if it is cleared, then it's a write operation. The remaining
+ * bits (6-0) are the 7-bit device address of the slave device.
+ *
+ * @return Current address for Slave 4
+ * @see getSlaveAddress()
+ * @see MPU9250_RA_I2C_SLV4_ADDR
+ */
+pub fn get_slave4_address(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_I2C_SLV4_ADDR)
+}
+
+/** Set the I2C address of Slave 4.
+ * @param address New address for Slave 4
+ * @see getSlave4Address()
+ * @see MPU9250_RA_I2C_SLV4_ADDR
+ */
+pub fn set_slave4_address(&self, address: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_I2C_SLV4_ADDR, address)
+}
+
+/** Get the active internal register for the Slave 4.
+ * Read/write operations for this slave will be done to whatever internal
+ * register address is stored in this MPU register.
+ *
+ * @return Current active register for Slave 4
+ * @see MPU9250_RA_I2C_SLV4_REG
+ */
+pub fn get_slave4_register(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_I2C_SLV4_REG)
+}
+
+/** Set the active internal register for Slave 4.
+ * @param reg New active register for Slave 4
+ * @see getSlave4Register()
+ * @see MPU9250_RA_I2C_SLV4_REG
+ */
+pub fn set_slave4_register(&self, reg: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_I2C_SLV4_REG, reg)
+}
+
+/** Set new byte to write to Slave 4.
+ * This register stores the data to be written into the Slave 4. If I2C_SLV4_RW
+ * is set 1 (set to read), this register has no effect.
+ * @param data New byte to write to Slave 4
+ * @see MPU9250_RA_I2C_SLV4_DO
+ */
+pub fn set_slave4_output_byte(&self, data: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_I2C_SLV4_DO, data)
+}
+
+/** Get the enabled value for the Slave 4.
+ * When set to 1, this bit enables Slave 4 for data transfer operations. When
+ * cleared to 0, this bit disables Slave 4 from data transfer operations.
+ * @return Current enabled value for Slave 4
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn get_slave4_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_EN_BIT)
+}
+
+/** Set the enabled value for Slave 4.
+ * @param enabled New enabled value for Slave 4
+ * @see getSlave4Enabled()
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn set_slave4_enabled(&self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_EN_BIT, enabled as u8)
+}
+
+/** Get the enabled value for Slave 4 transaction interrupts.
+ * When set to 1, this bit enables the generation of an interrupt signal upon
+ * completion of a Slave 4 transaction. When cleared to 0, this bit disables the
+ * generation of an interrupt signal upon completion of a Slave 4 transaction.
+ * The interrupt status can be observed in Register 54.
+ *
+ * @return Current enabled value for Slave 4 transaction interrupts.
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn get_slave4_interrupt_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_INT_EN_BIT)
+}
+
+/** Set the enabled value for Slave 4 transaction interrupts.
+ * @param enabled New enabled value for Slave 4 transaction interrupts.
+ * @see getSlave4InterruptEnabled()
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn set_slave4_interrupt_enabled(&self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_INT_EN_BIT, enabled as u8)
+}
+
+/** Get write mode for Slave 4.
+ * When set to 1, the transaction will read or write data only. When cleared to
+ * 0, the transaction will write a register address prior to reading or writing
+ * data. This should equal 0 when specifying the register address within the
+ * Slave device to/from which the ensuing data transaction will take place.
+ *
+ * @return Current write mode for Slave 4 (0 = register address + data, 1 = data only)
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn get_slave4_write_mode(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_REG_DIS_BIT)
+}
+
+/** Set write mode for the Slave 4.
+ * @param mode New write mode for Slave 4 (0 = register address + data, 1 = data only)
+ * @see getSlave4WriteMode()
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn set_slave4_write_mode(&self, mode: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_REG_DIS_BIT, mode as u8)
+}
+
+/** Get Slave 4 master delay value.
+ * This configures the reduced access rate of I2C slaves relative to the Sample
+ * Rate. When a slave's access rate is decreased relative to the Sample Rate,
+ * the slave is accessed every: 
+ *
+ *  1 / (1 + I2C_MST_DLY) // samples
+ *
+ * This base Sample Rate in turn is determined by SMPLRT_DIV (register 25) and
+ * DLPF_CFG (register 26). Whether a slave's access rate is reduced relative to
+ * the Sample Rate is determined by I2C_MST_DELAY_CTRL (register 103). For
+ * further information regarding the Sample Rate, please refer to register 25.
+ *
+ * @return Current Slave 4 master delay value
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn get_slave4_master_delay(&self) -> Result<u8> {
+    i2c::read_bits(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_MST_DLY_BIT, I2C_SLV4_MST_DLY_LENGTH)
+}
+
+/** Set Slave 4 master delay value.
+ * @param delay New Slave 4 master delay value
+ * @see getSlave4MasterDelay()
+ * @see MPU9250_RA_I2C_SLV4_CTRL
+ */
+pub fn set_slave4_master_delay(&self, delay: u8) -> Result<()> {
+    i2c::write_bits(self.dev_address, RA_I2C_SLV4_CTRL, I2C_SLV4_MST_DLY_BIT, I2C_SLV4_MST_DLY_LENGTH, delay)
+}
+
+/** Get last available byte read from Slave 4.
+ * This register stores the data read from Slave 4. This field is populated
+ * after a read transaction.
+ * @return Last available byte read from to Slave 4
+ * @see MPU9250_RA_I2C_SLV4_DI
+ */
+pub fn get_slave4_input_byte(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_I2C_SLV4_DI)
+}
+
+// I2C_MST_STATUS register
+
+/// Get FSYNC interrupt status.
+/// This bit reflects the status of the FSYNC interrupt from an external device
+/// into the MPU-60X0. This is used as a way to pass an external interrupt
+/// through the MPU-60X0 to the host application processor. When set to 1, this
+/// bit will cause an interrupt if FSYNC_INT_EN is asserted in INT_PIN_CFG
+/// (Register 55).
+/// @return FSYNC interrupt status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_passthrough_status(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_PASS_THROUGH_BIT);
+}
+
+/// Get Slave 4 transaction done status.
+/// Automatically sets to 1 when a Slave 4 transaction has completed. This
+/// triggers an interrupt if the I2C_MST_INT_EN bit in the INT_ENABLE register
+/// (Register 56) is asserted and if the SLV_4_DONE_INT bit is asserted in the
+/// I2C_SLV4_CTRL register (Register 52).
+/// @return Slave 4 transaction done status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_slave4_is_done(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV4_DONE_BIT);
+}
+
+/// Get master arbitration lost status.
+/// This bit automatically sets to 1 when the I2C Master has lost arbitration of
+/// the auxiliary I2C bus (an error condition). This triggers an interrupt if the
+/// I2C_MST_INT_EN bit in the INT_ENABLE register (Register 56) is asserted.
+/// @return Master arbitration lost status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_lost_arbitration(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_LOST_ARB_BIT);
+}
+
+/// Get Slave 4 NACK status.
+/// This bit automatically sets to 1 when the I2C Master receives a NACK in a
+/// transaction with Slave 4. This triggers an interrupt if the I2C_MST_INT_EN
+/// bit in the INT_ENABLE register (Register 56) is asserted.
+/// @return Slave 4 NACK interrupt status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_slave4_nack(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV4_NACK_BIT);
+}
+
+/// Get Slave 3 NACK status.
+/// This bit automatically sets to 1 when the I2C Master receives a NACK in a
+/// transaction with Slave 3. This triggers an interrupt if the I2C_MST_INT_EN
+/// bit in the INT_ENABLE register (Register 56) is asserted.
+/// @return Slave 3 NACK interrupt status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_slave3_nack(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV3_NACK_BIT);
+}
+
+/// Get Slave 2 NACK status.
+/// This bit automatically sets to 1 when the I2C Master receives a NACK in a
+/// transaction with Slave 2. This triggers an interrupt if the I2C_MST_INT_EN
+/// bit in the INT_ENABLE register (Register 56) is asserted.
+/// @return Slave 2 NACK interrupt status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_slave2_nack(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV2_NACK_BIT);
+}
+
+/// Get Slave 1 NACK status.
+/// This bit automatically sets to 1 when the I2C Master receives a NACK in a
+/// transaction with Slave 1. This triggers an interrupt if the I2C_MST_INT_EN
+/// bit in the INT_ENABLE register (Register 56) is asserted.
+/// @return Slave 1 NACK interrupt status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_slave1_nack(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV1_NACK_BIT);
+}
+
+/// Get Slave 0 NACK status.
+/// This bit automatically sets to 1 when the I2C Master receives a NACK in a
+/// transaction with Slave 0. This triggers an interrupt if the I2C_MST_INT_EN
+/// bit in the INT_ENABLE register (Register 56) is asserted.
+/// @return Slave 0 NACK interrupt status
+/// @see MPU9250_RA_I2C_MST_STATUS
+pub fn get_slave0_nack(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV0_NACK_BIT);
+}
+
+// INT_PIN_CFG register
+
+/// Get interrupt logic level mode.
+/// Will be set 0 for active-high, 1 for active-low.
+/// @return Current interrupt mode (0=active-high, 1=active-low)
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_INT_LEVEL_BIT
+pub fn get_interrupt_mode(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_LEVEL_BIT)
+}
+
+/// Set interrupt logic level mode.
+/// @param mode New interrupt mode (0=active-high, 1=active-low)
+/// @see get_interrupt_mode()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_INT_LEVEL_BIT
+pub fn set_interrupt_mode(&mut self, mode: u8) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_LEVEL_BIT, mode);
+}
+
+/// Get interrupt drive mode.
+/// Will be set 0 for push-pull, 1 for open-drain.
+/// @return Current interrupt drive mode (0=push-pull, 1=open-drain)
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_INT_OPEN_BIT
+pub fn get_interrupt_drive(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_OPEN_BIT);
+}
+
+/// Set interrupt drive mode.
+/// @param drive New interrupt drive mode (0=push-pull, 1=open-drain)
+/// @see get_interrupt_drive()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_INT_OPEN_BIT
+pub fn set_interrupt_drive(&mut self, drive: bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_OPEN_BIT, drive as u8);
+}
+
+/// Get interrupt latch mode.
+/// Will be set 0 for 50us-pulse, 1 for latch-until-int-cleared.
+/// @return Current latch mode (0=50us-pulse, 1=latch-until-int-cleared)
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_LATCH_INT_EN_BIT
+pub fn get_interrupt_latch(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT);
+}
+
+/// Set interrupt latch mode.
+/// @param latch New latch mode (0=50us-pulse, 1=latch-until-int-cleared)
+/// @see get_interrupt_latch()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_LATCH_INT_EN_BIT
+pub fn set_interrupt_latch(&mut self, latch: u8) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT, latch);
+}
+
+/// Get interrupt latch clear mode.
+/// Will be set 0 for status-read-only, 1 for any-register-read.
+/// @return Current latch clear mode (0=status-read-only, 1=any-register-read)
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_INT_RD_CLEAR_BIT
+pub fn get_interrupt_latch_clear(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_RD_CLEAR_BIT);
+}
+
+/// Set interrupt latch clear mode.
+/// @param clear New latch clear mode (0=status-read-only, 1=any-register-read)
+/// @see get_interrupt_latch_clear()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_INT_RD_CLEAR_BIT
+pub fn set_interrupt_latch_clear(&mut self, clear: bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_RD_CLEAR_BIT, clear as u8)
+}
+
+/// Get FSYNC interrupt logic level mode.
+/// @return Current FSYNC interrupt mode (0=active-high, 1=active-low)
+/// @see get_fsync_interrupt_mode()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_FSYNC_INT_LEVEL_BIT
+pub fn get_fsync_interrupt_level(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_LEVEL_BIT);
+}
+
+/// Set FSYNC interrupt logic level mode.
+/// @param level New FSYNC interrupt mode (0=active-high, 1=active-low)
+/// @see get_fsync_interrupt_mode()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_FSYNC_INT_LEVEL_BIT
+pub fn set_fsync_interrupt_level(&mut self, level: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_LEVEL_BIT, level)
+}
+
+/// Get FSYNC pin interrupt enabled setting.
+/// Will be set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled setting
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_FSYNC_INT_EN_BIT
+pub fn get_fsync_interrupt_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT);
+}
+
+/// Set FSYNC pin interrupt enabled setting.
+/// @param enabled New FSYNC pin interrupt enabled setting
+/// @see get_fsync_interrupt_enabled()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_FSYNC_INT_EN_BIT
+pub fn set_fsync_interrupt_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT, enabled as u8)
+}
+
+/// Get I2C bypass enabled status.
+/// When this bit is equal to 1 and I2C_MST_EN (Register 106 bit[5]) is equal to
+/// 0, the host application processor will be able to directly access the
+/// auxiliary I2C bus of the MPU-60X0. When this bit is equal to 0, the host
+/// application processor will not be able to directly access the auxiliary I2C
+/// bus of the MPU-60X0 regardless of the state of I2C_MST_EN (Register 106
+/// bit[5]).
+/// @return Current I2C bypass enabled status
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_I2C_BYPASS_EN_BIT
+pub fn get_i2c_bypass_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_I2C_BYPASS_EN_BIT);
+}
+
+/// Set I2C bypass enabled status.
+/// When this bit is equal to 1 and I2C_MST_EN (Register 106 bit[5]) is equal to
+/// 0, the host application processor will be able to directly access the
+/// auxiliary I2C bus of the MPU-60X0. When this bit is equal to 0, the host
+/// application processor will not be able to directly access the auxiliary I2C
+/// bus of the MPU-60X0 regardless of the state of I2C_MST_EN (Register 106
+/// bit[5]).
+/// @param enabled New I2C bypass enabled status
+/// @see get_i2c_bypass_enabled()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_I2C_BYPASS_EN_BIT
+pub fn set_i2c_bypass_enabled(&mut self, enabled: bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_I2C_BYPASS_EN_BIT, enabled as u8);
+}
+
+/// Get reference clock output enabled status.
+/// When this bit is equal to 1, a reference clock output is provided at the
+/// CLKOUT pin. When this bit is equal to 0, the clock output is disabled. For
+/// further information regarding CLKOUT, please refer to the MPU-60X0 Product
+/// Specification document.
+/// @return Current reference clock output enabled status
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_CLKOUT_EN_BIT
+pub fn get_clock_output_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_CLKOUT_EN_BIT);
+}
+
+/// Set reference clock output enabled status.
+/// When this bit is equal to 1, a reference clock output is provided at the
+/// CLKOUT pin. When this bit is equal to 0, the clock output is disabled. For
+/// further information regarding CLKOUT, please refer to the MPU-60X0 Product
+/// Specification document.
+/// @param enabled New reference clock output enabled status
+/// @see get_clock_output_enabled()
+/// @see MPU9250_RA_INT_PIN_CFG
+/// @see MPU9250_INTCFG_CLKOUT_EN_BIT
+pub fn set_clock_output_enabled(&mut self, enabled: bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_CLKOUT_EN_BIT, enabled as u8);
+}
+
+/// Get full interrupt enabled status.
+/// Full register byte for all interrupts, for quick reading. Each bit will be
+/// set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled status
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_FF_BIT
+pub fn get_int_enabled(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_INT_ENABLE);
+}
+
+/// Set full interrupt enabled status.
+/// Full register byte for all interrupts, for quick reading. Each bit should be
+/// set 0 for disabled, 1 for enabled.
+/// @param enabled New interrupt enabled status
+/// @see get_int_freefall_enabled()
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_FF_BIT
+pub fn set_int_enabled(&mut self, enabled: bool) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_INT_ENABLE, enabled as u8);
+}
+
+/// Get Free Fall interrupt enabled status.
+/// Will be set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled status
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_FF_BIT
+pub fn get_int_freefall_enabled(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_FF_BIT)
+}
+
+/// Set Free Fall interrupt enabled status.
+/// @param enabled New interrupt enabled status
+/// @see get_int_freefall_enabled()
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_FF_BIT
+pub fn set_int_freefall_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_FF_BIT, enabled as u8)
+}
+
+/// Get Motion Detection interrupt enabled status.
+/// Will be set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled status
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_MOT_BIT
+pub fn get_int_motion_enabled(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_MOT_BIT)
+}
+
+/// Set Motion Detection interrupt enabled status.
+/// @param enabled New interrupt enabled status
+/// @see get_int_motion_enabled()
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_MOT_BIT
+pub fn set_int_motion_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_MOT_BIT, enabled as u8)
+}
+
+/// Get Zero Motion Detection interrupt enabled status.
+/// Will be set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled status
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_ZMOT_BIT
+pub fn get_int_zero_motion_enabled(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_ZMOT_BIT)
+}
+
+/// Set Zero Motion Detection interrupt enabled status.
+/// @param enabled New interrupt enabled status
+/// @see get_int_zero_motion_enabled()
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_ZMOT_BIT
+pub fn set_int_zero_motion_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_ZMOT_BIT, enabled as u8)
+}
+
+/// Get FIFO Buffer Overflow interrupt enabled status.
+/// Will be set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled status
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_FIFO_OFLOW_BIT
+pub fn get_int_fifo_buffer_overflow_enabled(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT)
+}
+
+/// Set FIFO Buffer Overflow interrupt enabled status.
+/// @param enabled New interrupt enabled status
+/// @see get_int_fifo_buffer_overflow_enabled()
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_FIFO_OFLOW_BIT
+pub fn set_int_fifo_buffer_overflow_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT, enabled as u8)
+}
+
+/// Get I2C Master interrupt enabled status.
+/// This enables any of the I2C Master interrupt sources to generate an
+/// interrupt. Will be set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled status
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_I2C_MST_INT_BIT
+pub fn get_int_i2c_master_enabled(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_I2C_MST_INT_BIT)
+}
+
+/// Set I2C Master interrupt enabled status.
+/// @param enabled New interrupt enabled status
+/// @see get_int_i2c_master_enabled()
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_I2C_MST_INT_BIT
+pub fn set_int_i2c_master_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_I2C_MST_INT_BIT, enabled as u8)
+}
+
+/// Get Data Ready interrupt enabled setting.
+/// This event occurs each time a write operation to all of the sensor registers
+/// has been completed. Will be set 0 for disabled, 1 for enabled.
+/// @return Current interrupt enabled status
+/// @see MPU9250_RA_INT_ENABLE
+/// @see MPU9250_INTERRUPT_DATA_RDY_BIT
+pub fn get_int_data_ready_enabled(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_DATA_RDY_BIT)
+}
+
+/// Set Data Ready interrupt enabled status.
+/// @param enabled New interrupt enabled status
+/// @see get_int_data_ready_enabled()
+/// @see MPU9250_RA_INT_CFG
+/// @see MPU9250_INTERRUPT_DATA_RDY_BIT
+pub fn set_int_data_ready_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_DATA_RDY_BIT, enabled as u8)
+}
+
 
 
 
