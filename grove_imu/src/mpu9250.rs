@@ -496,8 +496,8 @@ impl MPU9250 {
    * @see getRate()
    * @see MPU9250_RA_SMPLRT_DIV
    */
-  pub fn set_rate(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_SMPLRT_DIV);
+  pub fn set_rate(&mut self, rate : u8) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_SMPLRT_DIV, rate);
   }
 
 
@@ -741,6 +741,438 @@ impl MPU9250 {
   pub fn set_dhpf_mode(&mut self, mode : u8) -> Result<()> {
     return i2c::write_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ACCEL_HPF_BIT, ACONFIG_ACCEL_HPF_LENGTH, mode);
   }
+
+  // FF_THR register
+  
+  /** Get free-fall event acceleration threshold.
+   * This register configures the detection threshold for Free Fall event
+   * detection. The unit of FF_THR is 1LSB = 2mg. Free Fall is detected when the
+   * absolute value of the accelerometer measurements for the three axes are each
+   * less than the detection threshold. This condition increments the Free Fall
+   * duration counter (Register 30). The Free Fall interrupt is triggered when the
+   * Free Fall duration counter reaches the time specified in FF_DUR.
+   *
+   * For more details on the Free Fall detection interrupt, see Section 8.2 of the
+   * MPU-6000/MPU-9250 Product Specification document as well as Registers 56 and
+   * 58 of this document.
+   *
+   * @return Current free-fall acceleration threshold value (LSB = 2mg)
+   * @see MPU9250_RA_FF_THR
+   */
+  pub fn get_free_fall_detection_threshold(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_FF_THR);
+  }
+  /** Get free-fall event acceleration threshold.
+   * @param threshold New free-fall acceleration threshold value (LSB = 2mg)
+   * @see getFreefallDetectionThreshold()
+   * @see MPU9250_RA_FF_THR
+   */
+  pub fn set_free_fall_detection_threshold(&mut self, threshold : u8) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_FF_THR, threshold);
+  }
+  
+  // FF_DUR register
+  
+  /** Get free-fall event duration threshold.
+   * This register configures the duration counter threshold for Free Fall event
+   * detection. The duration counter ticks at 1kHz, therefore FF_DUR has a unit
+   * of 1 LSB = 1 ms.
+   *
+   * The Free Fall duration counter increments while the absolute value of the
+   * accelerometer measurements are each less than the detection threshold
+   * (Register 29). The Free Fall interrupt is triggered when the Free Fall
+   * duration counter reaches the time specified in this register.
+   *
+   * For more details on the Free Fall detection interrupt, see Section 8.2 of
+   * the MPU-6000/MPU-9250 Product Specification document as well as Registers 56
+   * and 58 of this document.
+   *
+   * @return Current free-fall duration threshold value (LSB = 1ms)
+   * @see MPU9250_RA_FF_DUR
+   */
+  pub fn get_free_fall_detection_duration(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_FF_DUR);
+  }
+  /** Get free-fall event duration threshold.
+   * @param duration New free-fall duration threshold value (LSB = 1ms)
+   * @see getFreefallDetectionDuration()
+   * @see MPU9250_RA_FF_DUR
+   */
+  pub fn set_free_fall_detection_duration(&mut self, duration : u8) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_FF_DUR, duration);
+  }
+  
+
+  // MOT_THR register
+  
+  /** Get motion detection event acceleration threshold.
+   * This register configures the detection threshold for Motion interrupt
+   * generation. The unit of MOT_THR is 1LSB = 2mg. Motion is detected when the
+   * absolute value of any of the accelerometer measurements exceeds this Motion
+   * detection threshold. This condition increments the Motion detection duration
+   * counter (Register 32). The Motion detection interrupt is triggered when the
+   * Motion Detection counter reaches the time count specified in MOT_DUR
+   * (Register 32).
+   *
+   * The Motion interrupt will indicate the axis and polarity of detected motion
+   * in MOT_DETECT_STATUS (Register 97).
+   *
+   * For more details on the Motion detection interrupt, see Section 8.3 of the
+   * MPU-6000/MPU-9250 Product Specification document as well as Registers 56 and
+   * 58 of this document.
+   *
+   * @return Current motion detection acceleration threshold value (LSB = 2mg)
+   * @see MPU9250_RA_MOT_THR
+   */
+  pub fn get_motion_detection_threshold(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_MOT_THR);
+  }
+  /** Set free-fall event acceleration threshold.
+   * @param threshold New motion detection acceleration threshold value (LSB = 2mg)
+   * @see getMotionDetectionThreshold()
+   * @see MPU9250_RA_MOT_THR
+   */
+  pub fn set_motion_detection_threshold(&mut self, threshold : u8) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_MOT_THR, threshold);
+  }
+  
+  // MOT_DUR register
+  
+  /** Get motion detection event duration threshold.
+   * This register configures the duration counter threshold for Motion interrupt
+   * generation. The duration counter ticks at 1 kHz, therefore MOT_DUR has a unit
+   * of 1LSB = 1ms. The Motion detection duration counter increments when the
+   * absolute value of any of the accelerometer measurements exceeds the Motion
+   * detection threshold (Register 31). The Motion detection interrupt is
+   * triggered when the Motion detection counter reaches the time count specified
+   * in this register.
+   *
+   * For more details on the Motion detection interrupt, see Section 8.3 of the
+   * MPU-6000/MPU-9250 Product Specification document.
+   *
+   * @return Current motion detection duration threshold value (LSB = 1ms)
+   * @see MPU9250_RA_MOT_DUR
+   */
+  pub fn get_motion_detection_duration(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_MOT_DUR);
+  }
+  /** Set motion detection event duration threshold.
+   * @param duration New motion detection duration threshold value (LSB = 1ms)
+   * @see getMotionDetectionDuration()
+   * @see MPU9250_RA_MOT_DUR
+   */
+  pub fn set_motion_detection_duration(&mut self, duration : u8) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_MOT_DUR, duration);
+  }
+
+  // ZRMOT_THR register
+  
+  /** Get zero motion detection event acceleration threshold.
+   * This register configures the detection threshold for Zero Motion interrupt
+   * generation. The unit of ZRMOT_THR is 1LSB = 2mg. Zero Motion is detected when
+   * the absolute value of the accelerometer measurements for the 3 axes are each
+   * less than the detection threshold. This condition increments the Zero Motion
+   * duration counter (Register 34). The Zero Motion interrupt is triggered when
+   * the Zero Motion duration counter reaches the time count specified in
+   * ZRMOT_DUR (Register 34).
+   *
+   * Unlike Free Fall or Motion detection, Zero Motion detection triggers an
+   * interrupt both when Zero Motion is first detected and when Zero Motion is no
+   * longer detected.
+   *
+   * When a zero motion event is detected, a Zero Motion Status will be indicated
+   * in the MOT_DETECT_STATUS register (Register 97). When a motion-to-zero-motion
+   * condition is detected, the status bit is set to 1. When a zero-motion-to-
+   * motion condition is detected, the status bit is set to 0.
+   *
+   * For more details on the Zero Motion detection interrupt, see Section 8.4 of
+   * the MPU-6000/MPU-9250 Product Specification document as well as Registers 56
+   * and 58 of this document.
+   *
+   * @return Current zero motion detection acceleration threshold value (LSB = 2mg)
+   * @see MPU9250_RA_ZRMOT_THR
+   */
+  pub fn get_zero_motion_detection_threshold(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_ZRMOT_THR);
+  }
+  /** Set zero motion detection event acceleration threshold.
+   * @param threshold New zero motion detection acceleration threshold value (LSB = 2mg)
+   * @see getZeroMotionDetectionThreshold()
+   * @see MPU9250_RA_ZRMOT_THR
+   */
+  pub fn set_zero_motion_detection_threshold(&mut self, threshold : u8) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_ZRMOT_THR, threshold);
+  }
+  
+  // ZRMOT_DUR register
+  
+  /** Get zero motion detection event duration threshold.
+   * This register configures the duration counter threshold for Zero Motion
+   * interrupt generation. The duration counter ticks at 16 Hz, therefore
+   * ZRMOT_DUR has a unit of 1 LSB = 64 ms. The Zero Motion duration counter
+   * increments while the absolute value of the accelerometer measurements are
+   * each less than the detection threshold (Register 33). The Zero Motion
+   * interrupt is triggered when the Zero Motion duration counter reaches the time
+   * count specified in this register.
+   *
+   * For more details on the Zero Motion detection interrupt, see Section 8.4 of
+   * the MPU-6000/MPU-9250 Product Specification document, as well as Registers 56
+   * and 58 of this document.
+   *
+   * @return Current zero motion detection duration threshold value (LSB = 64ms)
+   * @see MPU9250_RA_ZRMOT_DUR
+   */
+  pub fn get_zero_motion_detection_duration(&mut self) -> Result<u8> {
+    return i2c::read_byte(self.dev_address, RA_ZRMOT_DUR);
+  }
+  /** Set zero motion detection event duration threshold.
+   * @param duration New zero motion detection duration threshold value (LSB = 1ms)
+   * @see getZeroMotionDetectionDuration()
+   * @see MPU9250_RA_ZRMOT_DUR
+   */
+  pub fn set_zero_motion_detection_duration(&mut self, duration : u8) -> Result<()> {
+    return i2c::write_byte(self.dev_address, RA_ZRMOT_DUR, duration);
+  }
+
+
+  // FIFO_EN register
+  
+  /** Get temperature FIFO enabled value.
+   * When set to 1, this bit enables TEMP_OUT_H and TEMP_OUT_L (Registers 65 and
+   * 66) to be written into the FIFO buffer.
+   * @return Current temperature FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_temp_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, TEMP_FIFO_EN_BIT);
+  }
+  /** Set temperature FIFO enabled value.
+   * @param enabled New temperature FIFO enabled value
+   * @see getTempFIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_temp_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, TEMP_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get gyroscope X-axis FIFO enabled value.
+   * When set to 1, this bit enables GYRO_XOUT_H and GYRO_XOUT_L (Registers 67 and
+   * 68) to be written into the FIFO buffer.
+   * @return Current gyroscope X-axis FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_x_gyro_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, XG_FIFO_EN_BIT);
+  }
+  /** Set gyroscope X-axis FIFO enabled value.
+   * @param enabled New gyroscope X-axis FIFO enabled value
+   * @see getXGyroFIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_x_gyro_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, XG_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get gyroscope Y-axis FIFO enabled value.
+   * When set to 1, this bit enables GYRO_YOUT_H and GYRO_YOUT_L (Registers 69 and
+   * 70) to be written into the FIFO buffer.
+   * @return Current gyroscope Y-axis FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_y_gyro_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, YG_FIFO_EN_BIT);
+  }
+  /** Set gyroscope Y-axis FIFO enabled value.
+   * @param enabled New gyroscope Y-axis FIFO enabled value
+   * @see getYGyroFIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_y_gyro_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, YG_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get gyroscope Z-axis FIFO enabled value.
+   * When set to 1, this bit enables GYRO_ZOUT_H and GYRO_ZOUT_L (Registers 71 and
+   * 72) to be written into the FIFO buffer.
+   * @return Current gyroscope Z-axis FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_z_gyro_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, ZG_FIFO_EN_BIT);
+  }
+  /** Set gyroscope Z-axis FIFO enabled value.
+   * @param enabled New gyroscope Z-axis FIFO enabled value
+   * @see getZGyroFIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_z_gyro_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, ZG_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get accelerometer FIFO enabled value.
+   * When set to 1, this bit enables ACCEL_XOUT_H, ACCEL_XOUT_L, ACCEL_YOUT_H,
+   * ACCEL_YOUT_L, ACCEL_ZOUT_H, and ACCEL_ZOUT_L (Registers 59 to 64) to be
+   * written into the FIFO buffer.
+   * @return Current accelerometer FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_accel_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, ACCEL_FIFO_EN_BIT);
+  }
+  /** Set accelerometer FIFO enabled value.
+   * @param enabled New accelerometer FIFO enabled value
+   * @see getAccelFIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_accel_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, ACCEL_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get Slave 2 FIFO enabled value.
+   * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
+   * associated with Slave 2 to be written into the FIFO buffer.
+   * @return Current Slave 2 FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_slave2_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV2_FIFO_EN_BIT);
+  }
+  /** Set Slave 2 FIFO enabled value.
+   * @param enabled New Slave 2 FIFO enabled value
+   * @see getSlave2FIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_slave2_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV2_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get Slave 1 FIFO enabled value.
+   * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
+   * associated with Slave 1 to be written into the FIFO buffer.
+   * @return Current Slave 1 FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_slave1_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV1_FIFO_EN_BIT);
+  }
+  /** Set Slave 1 FIFO enabled value.
+   * @param enabled New Slave 1 FIFO enabled value
+   * @see getSlave1FIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_slave1_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV1_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get Slave 0 FIFO enabled value.
+   * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
+   * associated with Slave 0 to be written into the FIFO buffer.
+   * @return Current Slave 0 FIFO enabled value
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_slave0_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV0_FIFO_EN_BIT);
+  }
+  /** Set Slave 0 FIFO enabled value.
+   * @param enabled New Slave 0 FIFO enabled value
+   * @see getSlave0FIFOEnabled()
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_slave0_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV0_FIFO_EN_BIT, enabled as u8);
+  }
+
+  // I2C_MST_CTRL register
+  
+  /** Get multi-master enabled value.
+   * Multi-master capability allows multiple I2C masters to operate on the same
+   * bus. In circuits where multi-master capability is required, set MULT_MST_EN
+   * to 1. This will increase current drawn by approximately 30uA.
+   *
+   * In circuits where multi-master capability is required, the state of the I2C
+   * bus must always be monitored by each separate I2C Master. Before an I2C
+   * Master can assume arbitration of the bus, it must first confirm that no other
+   * I2C Master has arbitration of the bus. When MULT_MST_EN is set to 1, the
+   * MPU-60X0's bus arbitration detection logic is turned on, enabling it to
+   * detect when the bus is available.
+   *
+   * @return Current multi-master enabled value
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn get_multi_master_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, MULT_MST_EN_BIT);
+  }
+  /** Set multi-master enabled value.
+   * @param enabled New multi-master enabled value
+   * @see getMultiMasterEnabled()
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn set_multi_master_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, MULT_MST_EN_BIT, enabled as u8);
+  }
+  /** Get wait-for-external-sensor-data enabled value.
+   * When the WAIT_FOR_ES bit is set to 1, the Data Ready interrupt will be
+   * delayed until External Sensor data from the Slave Devices are loaded into the
+   * EXT_SENS_DATA registers. This is used to ensure that both the internal sensor
+   * data (i.e. from gyro and accel) and external sensor data have been loaded to
+   * their respective data registers (i.e. the data is synced) when the Data Ready
+   * interrupt is triggered.
+   *
+   * @return Current wait-for-external-sensor-data enabled value
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn get_wait_for_external_sensor_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, WAIT_FOR_ES_BIT);
+  }
+  /** Set wait-for-external-sensor-data enabled value.
+   * @param enabled New wait-for-external-sensor-data enabled value
+   * @see getWaitForExternalSensorEnabled()
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn set_wait_for_external_sensor_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, WAIT_FOR_ES_BIT, enabled as u8);
+  }
+  /** Get Slave 3 FIFO enabled value.
+   * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
+   * associated with Slave 3 to be written into the FIFO buffer.
+   * @return Current Slave 3 FIFO enabled value
+   * @see MPU9250_RA_MST_CTRL
+   */
+  pub fn get_slave3_fifo_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, SLV_3_FIFO_EN_BIT);
+  }
+  /** Set Slave 3 FIFO enabled value.
+   * @param enabled New Slave 3 FIFO enabled value
+   * @see getSlave3FIFOEnabled()
+   * @see MPU9250_RA_MST_CTRL
+   */
+  pub fn set_slave3_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, SLV_3_FIFO_EN_BIT, enabled as u8);
+  }
+  /** Get slave read/write transition enabled value.
+   * The I2C_MST_P_NSR bit configures the I2C Master's transition from one slave
+   * read to the next slave read. If the bit equals 0, there will be a restart
+   * between reads. If the bit equals 1, there will be a stop followed by a start
+   * of the following read. When a write transaction follows a read transaction,
+   * the stop followed by a start of the successive write will be always used.
+   *
+   * @return Current slave read/write transition enabled value
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn get_slave_read_write_transition_enabled(&mut self) -> Result<u8> {
+    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_P_NSR_BIT);
+  }
+  /** Set slave read/write transition enabled value.
+   * @param enabled New slave read/write transition enabled value
+   * @see getSlaveReadWriteTransitionEnabled()
+   * @see MPU9250_RA_I2C_MST_CTRL
+   */
+  pub fn set_slave_read_write_transition_enabled(&mut self, enabled : bool) -> Result<()> {
+    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_P_NSR_BIT, enabled as u8);
+  }
+
+
+
+
+
+
+
+
+
+
 
 
 
