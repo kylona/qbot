@@ -40,13 +40,13 @@ use anyhow::anyhow;
 pub mod mpu9150 {
 
     //Magnetometer Registers
-    const RA_MAG_ADDRESS : u16 = 0x0C;
-    const RA_MAG_XOUT_L   : u8 = 0x03;
-    const RA_MAG_XOUT_H   : u8 = 0x04;
-    const RA_MAG_YOUT_L   : u8 = 0x05;
-    const RA_MAG_YOUT_H   : u8 = 0x06;
-    const RA_MAG_ZOUT_L   : u8 = 0x07;
-    const RA_MAG_ZOUT_H   : u8 = 0x08;
+    pub const RA_MAG_ADDRESS : u16 = 0x0C;
+    pub const RA_MAG_XOUT_L   : u8 = 0x03;
+    pub const RA_MAG_XOUT_H   : u8 = 0x04;
+    pub const RA_MAG_YOUT_L   : u8 = 0x05;
+    pub const RA_MAG_YOUT_H   : u8 = 0x06;
+    pub const RA_MAG_ZOUT_L   : u8 = 0x07;
+    pub const RA_MAG_ZOUT_H   : u8 = 0x08;
 
 }
 
@@ -402,6 +402,24 @@ const WHO_AM_I_LENGTH : u8 = 8;
 const DMP_MEMORY_BANKS : u8 = 8;
 const DMP_MEMORY_BANK_SIZE : u16 = 256;
 const DMP_MEMORY_CHUNK_SIZE : u8 = 16;
+
+
+// ACCEL_*OUT_* registers
+pub struct AccelerometerData {
+	pub x: i16,
+	pub y: i16,
+	pub z: i16,
+}
+pub struct GyroscopeData {
+	pub x: i16,
+	pub y: i16,
+	pub z: i16,
+}
+pub struct MagnetometerData {
+	pub x: i16,
+	pub y: i16,
+	pub z: i16,
+}
 
 
 /** Specific address constructor.
@@ -1972,7 +1990,127 @@ pub fn set_int_data_ready_enabled(&mut self, enabled: bool) -> Result<()> {
     i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_DATA_RDY_BIT, enabled as u8)
 }
 
+/// Get full set of interrupt status bits.
+/// These bits clear to 0 after the register has been read. Very useful
+/// for getting multiple INT statuses, since each single bit read clears
+/// all of them because it has to read the whole byte.
+/// @return Current interrupt status
+/// @see MPU9250_RA_INT_STATUS
+pub fn get_int_status(&mut self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_INT_STATUS)
+}
 
+/// Get Free Fall interrupt status.
+/// This bit automatically sets to 1 when a Free Fall interrupt has been
+/// generated. The bit clears to 0 after the register has been read.
+/// @return Current interrupt status
+/// @see MPU9250_RA_INT_STATUS
+/// @see MPU9250_INTERRUPT_FF_BIT
+pub fn get_int_freefall_status(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_FF_BIT)
+}
+
+/// Get Motion Detection interrupt status.
+/// This bit automatically sets to 1 when a Motion Detection interrupt has been
+/// generated. The bit clears to 0 after the register has been read.
+/// @return Current interrupt status
+/// @see MPU9250_RA_INT_STATUS
+/// @see MPU9250_INTERRUPT_MOT_BIT
+pub fn get_int_motion_status(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_MOT_BIT)
+}
+
+/// Get Zero Motion Detection interrupt status.
+/// This bit automatically sets to 1 when a Zero Motion Detection interrupt has
+/// been generated. The bit clears to 0 after the register has been read.
+/// @return Current interrupt status
+/// @see MPU9250_RA_INT_STATUS
+/// @see MPU9250_INTERRUPT_ZMOT_BIT
+pub fn get_int_zero_motion_status(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_ZMOT_BIT)
+}
+
+/// Get FIFO Buffer Overflow interrupt status.
+/// This bit automatically sets to 1 when a Free Fall interrupt has been
+/// generated. The bit clears to 0 after the register has been read.
+/// @return Current interrupt status
+/// @see MPU9250_RA_INT_STATUS
+/// @see MPU9250_INTERRUPT_FIFO_OFLOW_BIT
+pub fn get_int_fifo_buffer_overflow_status(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_FIFO_OFLOW_BIT)
+}
+
+/// Get I2C Master interrupt status.
+/// This bit automatically sets to 1 when an I2C Master interrupt has been
+/// generated. For a list of I2C Master interrupts, please refer to Register 54.
+/// The bit clears to 0 after the register has been read.
+/// @return Current interrupt status
+/// @see MPU9250_RA_INT_STATUS
+/// @see MPU9250_INTERRUPT_I2C_MST_INT_BIT
+pub fn get_int_i2c_master_status(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_I2C_MST_INT_BIT)
+}
+
+/// Get Data Ready interrupt status.
+/// This bit automatically sets to 1 when a Data Ready interrupt has been
+/// generated. The bit clears to 0 after the register has been read.
+/// @return Current interrupt status
+/// @see MPU9250_RA_INT_STATUS
+/// @see MPU9250_INTERRUPT_DATA_RDY_BIT
+pub fn get_int_data_ready_status(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_DATA_RDY_BIT)
+}
+
+/** Get raw 9-axis motion sensor readings (accel/gyro/compass).
+ * FUNCTION NOT FULLY IMPLEMENTED YET.
+ * @see getMotion6()
+ * @see getAcceleration()
+ * @see getRotation()
+ * @see MPU9250_RA_ACCEL_XOUT_H
+ */
+pub fn get_motion_9(&mut self) -> Result<(AccelerometerData, GyroscopeData, MagnetometerData)> {
+	//get accel and gyro
+  let (accelerometer_data, gyroscope_data) = self.get_motion_6()?;
+    
+	//read mag
+	//TODO should this be done as part of init instead?
+	//I2Cdev::writeByte(devAddr, MPU9250_RA_INT_PIN_CFG, 0x02); //set i2c bypass enable pin to true to access magnetometer
+	//delay(10);
+	//I2Cdev::writeByte(MPU9150_RA_MAG_ADDRESS, 0x0A, 0x01); //enable the magnetometer
+	//delay(10);
+	let mut buffer = [0; 6];
+	i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer);
+	let magnetometer_data = MagnetometerData {
+			x : ((buffer[1] as i16) << 8) | buffer[0] as i16,
+			y : ((buffer[3] as i16) << 8) | buffer[2] as i16,
+			z : ((buffer[5] as i16) << 8) | buffer[4] as i16,
+  };
+	Ok((accelerometer_data, gyroscope_data, magnetometer_data))
+}
+
+
+  /** Get raw 6-axis motion sensor readings (accel/gyro).
+   * Retrieves all currently available motion sensor values.
+   * @see getAcceleration()
+   * @see getRotation()
+   * @see MPU9250_RA_ACCEL_XOUT_H
+   */
+pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
+	let mut buffer = [0; 14];
+	i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 14, &mut buffer);
+	let accelerometer_data = AccelerometerData {
+			x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
+			y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
+			z : ((buffer[4] as i16) << 8) | buffer[5] as i16,
+  };
+	let gyroscope_data = GyroscopeData {
+			x : ((buffer[8] as i16) << 8) | buffer[9] as i16,
+			y : ((buffer[10] as i16) << 8) | buffer[11] as i16,
+			z : ((buffer[12] as i16) << 8) | buffer[13] as i16,
+  };
+	Ok((accelerometer_data, gyroscope_data))
+	
+}
 
 
 

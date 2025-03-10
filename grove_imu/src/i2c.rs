@@ -22,6 +22,28 @@ pub fn write_byte(dev_addr : u16, reg_addr : u8, data : u8) -> Result<()> {
     return Ok(());
 }
 
+pub fn read_bytes(dev_addr : u16, reg_addr : u8, length: u8, data : &mut [u8]) -> Result<u8> {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
+    i2c.smbus_set_slave_address(dev_addr, false)?;
+    let mut bytes_read = 0;
+    for offset in 0..length {
+        data[offset as usize] = i2c.smbus_read_byte_data(reg_addr+offset)?;
+        bytes_read += 1;
+    }
+    return Ok(bytes_read);
+}
+
+pub fn write_bytes(dev_addr : u16, reg_addr : u8, length : u8, data : &[u8]) -> Result<u8> {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
+    i2c.smbus_set_slave_address(dev_addr, false)?;
+    let mut bytes_written = 0;
+    for offset in 0..length {
+        i2c.smbus_write_byte_data(reg_addr+offset, data[offset as usize])?;
+        bytes_written += 1;
+    }
+    return Ok(bytes_written);
+}
+
 pub fn read_bits(dev_addr : u16, reg_addr : u8, bit_start : u8, length : u8) -> Result<u8> {
     // 01101001 read byte
     // 76543210 bit numbers

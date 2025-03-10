@@ -16,6 +16,17 @@ mod tests {
     }
 
     #[test]
+    fn test_get_motion_6() {
+        let mut mpu9250 = MPU9250::new(0x68);
+        for i in 0..100 {
+            let (accel_data, gyro_data) = mpu9250.get_motion_6().unwrap();
+            println!("ALL MOTION DATA:\nAcc\tx:{}\ty:{}\tz:{}\nGyr:\tx:{}\ty:{}\tz:{}\n", accel_data.x, accel_data.y, accel_data.z, gyro_data.x, gyro_data.y, gyro_data.z);
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        assert!(mpu9250.get_motion_6().is_ok(), "Get motion 6 failed")
+    }
+
+    #[test]
     fn test_read_accelerometer() {
         assert!(read_x_accelerometer().is_ok(), "Read accelerometer failed")
     }
