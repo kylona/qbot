@@ -2276,18 +2276,298 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
 			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
+
+/// Read single byte from external sensor data register.
+/// 
+/// These registers store data read from external sensors by the Slave 0, 1, 2,
+/// and 3 on the auxiliary I2C interface. 
+/// 
+/// # Arguments
+/// * `position` - Starting position (0-23)
+///
+/// # Returns
+/// A `Result<u8>` representing the byte read from the register.
+pub fn get_external_sensor_byte(&mut self, position: u8) -> Result<u8> {
+    if position > 23 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    i2c::read_byte(self.dev_address, RA_EXT_SENS_DATA_00 + position)
+}
+
+/// Read word (2 bytes) from external sensor data registers.
+///
+/// # Arguments
+/// * `position` - Starting position (0-21)
+///
+/// # Returns
+/// A `Result<u16>` representing the word read from the register.
+pub fn get_external_sensor_word(&mut self, position: u8) -> Result<u16> {
+    if position > 21 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    let mut buffer = [0u8; 2];
+    i2c::read_bytes(self.dev_address, RA_EXT_SENS_DATA_00 + position, 2, &mut buffer)?;
+    Ok(u16::from_be_bytes(buffer))
+}
+
+/// Read double word (4 bytes) from external sensor data registers.
+///
+/// # Arguments
+/// * `position` - Starting position (0-20)
+///
+/// # Returns
+/// A `Result<u32>` representing the double word read from the registers.
+pub fn get_external_sensor_dword(&mut self, position: u8) -> Result<u32> {
+    if position > 20 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    let mut buffer = [0u8; 4];
+    i2c::read_bytes(self.dev_address, RA_EXT_SENS_DATA_00 + position, 4, &mut buffer)?;
+    Ok(u32::from_be_bytes(buffer))
+}
+
+/// Get X-axis negative motion detection interrupt status.
+pub fn get_x_neg_motion_detected(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_XNEG_BIT)
+}
+
+/// Get X-axis positive motion detection interrupt status.
+pub fn get_x_pos_motion_detected(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_XPOS_BIT)
+}
+
+/// Get Y-axis negative motion detection interrupt status.
+pub fn get_y_neg_motion_detected(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_YNEG_BIT)
+}
+
+/// Get Y-axis positive motion detection interrupt status.
+pub fn get_y_pos_motion_detected(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_YPOS_BIT)
+}
+
+/// Get Z-axis negative motion detection interrupt status.
+pub fn get_z_neg_motion_detected(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_ZNEG_BIT)
+}
+
+/// Get Z-axis positive motion detection interrupt status.
+pub fn get_z_pos_motion_detected(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_ZPOS_BIT)
+}
+
+/// Get zero motion detection interrupt status.
+pub fn get_zero_motion_detected(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_ZRMOT_BIT)
+}
+
+/// Write byte to Data Output container for specified slave.
+pub fn set_slave_output_byte(&mut self, num: u8, data: u8) -> Result<()> {
+    if num > 3 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    i2c::write_byte(self.dev_address, RA_I2C_SLV0_DO + num, data)
+}
+
+/// Get external data shadow delay enabled status.
+pub fn get_external_shadow_delay_enabled(&mut self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, DELAYCTRL_DELAY_ES_SHADOW_BIT)
+}
+
+/// Set external data shadow delay enabled status.
+pub fn set_external_shadow_delay_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, DELAYCTRL_DELAY_ES_SHADOW_BIT, enabled as u8)
+}
+
+/// Get slave delay enabled status.
+pub fn get_slave_delay_enabled(&mut self, num: u8) -> Result<u8> {
+    if num > 4 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    i2c::read_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, num)
+}
+
+/// Set slave delay enabled status.
+pub fn set_slave_delay_enabled(&mut self, num: u8, enabled: bool) -> Result<()> {
+    if num > 4 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    i2c::write_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, num, enabled as u8)
+}
+
+/// Reset gyroscope signal path.
+pub fn reset_gyroscope_path(&mut self) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_SIGNAL_PATH_RESET, PATHRESET_GYRO_RESET_BIT, true as u8)
+}
+
+/// Reset accelerometer signal path.
+pub fn reset_accelerometer_path(&mut self) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_SIGNAL_PATH_RESET, PATHRESET_ACCEL_RESET_BIT, true as u8)
+}
+
+/// Reset temperature sensor signal path.
+pub fn reset_temperature_path(&mut self) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_SIGNAL_PATH_RESET, PATHRESET_TEMP_RESET_BIT, true as u8)
+}
+
+/// Get accelerometer power-on delay.
+pub fn get_accelerometer_power_on_delay(&mut self) -> Result<u8> {
+    i2c::read_bits(
+        self.dev_address,
+        RA_MOT_DETECT_CTRL,
+        DETECT_ACCEL_ON_DELAY_BIT,
+        DETECT_ACCEL_ON_DELAY_LENGTH,
+    )
+}
+
+/// Set accelerometer power-on delay.
+pub fn set_accelerometer_power_on_delay(&mut self, delay: u8) -> Result<()> {
+    if delay > 3 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    i2c::write_bits(
+        self.dev_address,
+        RA_MOT_DETECT_CTRL,
+        DETECT_ACCEL_ON_DELAY_BIT,
+        DETECT_ACCEL_ON_DELAY_LENGTH,
+        delay,
+    )
+}
+
+/// Get Free Fall detection counter decrement configuration.
+pub fn get_freefall_detection_counter_decrement(&mut self) -> Result<u8> {
+    i2c::read_bits(
+        self.dev_address,
+        RA_MOT_DETECT_CTRL,
+        DETECT_FF_COUNT_BIT,
+        DETECT_FF_COUNT_LENGTH,
+    )
+}
+
+/// Set Free Fall detection counter decrement configuration.
+pub fn set_freefall_detection_counter_decrement(&mut self, decrement: u8) -> Result<()> {
+    if decrement > 3 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    i2c::write_bits(
+        self.dev_address,
+        RA_MOT_DETECT_CTRL,
+        DETECT_FF_COUNT_BIT,
+        DETECT_FF_COUNT_LENGTH,
+        decrement,
+    )
+}
+
+/// Get Motion detection counter decrement configuration.
+pub fn get_motion_detection_counter_decrement(&mut self) -> Result<u8> {
+    i2c::read_bits(
+        self.dev_address,
+        RA_MOT_DETECT_CTRL,
+        DETECT_MOT_COUNT_BIT,
+        DETECT_MOT_COUNT_LENGTH,
+    )
+}
+
+/// Set Motion detection counter decrement configuration.
+pub fn set_motion_detection_counter_decrement(&mut self, decrement: u8) -> Result<()> {
+    if decrement > 3 {
+        return Err(anyhow!("Invalid Parameter"));
+    }
+    i2c::write_bits(
+        self.dev_address,
+        RA_MOT_DETECT_CTRL,
+        DETECT_MOT_COUNT_BIT,
+        DETECT_MOT_COUNT_LENGTH,
+        decrement,
+    )
+}
+
+/// Get FIFO enabled status.
+pub fn get_fifo_enabled(&mut self) -> Result<u8> {
+		i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT)
+}
+
+/// Set FIFO enabled status.
+pub fn set_fifo_enabled(&mut self, enabled: bool) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT, enabled as u8)
+}
+
+/// Get I2C Master Mode enabled status.
+pub fn get_i2c_master_mode_enabled(&mut self) -> Result<u8> {
+		i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT)
+}
+
+/// Set I2C Master Mode enabled status.
+pub fn set_i2c_master_mode_enabled(&mut self, enabled: bool) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT, enabled as u8)
+}
+
+/// Switch from I2C to SPI mode (MPU-6000 only).
+pub fn switch_spi_enabled(&mut self, enabled: bool) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_IF_DIS_BIT, enabled as u8)
+}
+
+/// Reset the FIFO.
+pub fn reset_fifo(&mut self) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_RESET_BIT, 1)
+}
+
+/// Reset the I2C Master.
+pub fn reset_i2c_master(&mut self) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_RESET_BIT, 1)
+}
+
+/// Reset all sensor registers and signal paths.
+pub fn reset_sensors(&mut self) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_SIG_COND_RESET_BIT, 1)
+}
+
+/// Trigger a full device reset.
+pub fn reset(&mut self) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_DEVICE_RESET_BIT, 1)
+}
+
+/// Get sleep mode status.
+pub fn get_sleep_enabled(&mut self) -> Result<u8> {
+		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT)
+}
+
+/// Set sleep mode status.
+pub fn set_sleep_enabled(&mut self, enabled: bool) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled as u8)
+}
+
+/// Get wake cycle enabled status.
+pub fn get_wake_cycle_enabled(&mut self) -> Result<u8> {
+		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT)
+}
+
+/// Set wake cycle enabled status.
+pub fn set_wake_cycle_enabled(&mut self, enabled: bool) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT, enabled as u8)
+}
+
+/// Get temperature sensor enabled status.
+pub fn get_temp_sensor_enabled(&mut self) -> Result<u8> {
+		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT)
+}
+
+/// Set temperature sensor enabled status.
+pub fn set_temp_sensor_enabled(&mut self, enabled: bool) -> Result<()> {
+		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT, (!enabled) as u8)
+}
+
+/// Get clock source setting.
+pub fn get_clock_source(&mut self) -> Result<u8> {
+		i2c::read_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH)
+}
+
+/// Set clock source setting.
+pub fn set_clock_source(&mut self, source: u8) -> Result<()> {
+		i2c::write_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, source)
+}
+
 	
-
-
-  pub fn set_clock_source(&mut self, source : u8) -> Result<()> {
-    return i2c::write_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, source);
-  }
-
-
-  pub fn set_sleep_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled as u8);
-  }
-
   pub fn get_device_id(&mut self) -> Result<u8> {
     return i2c::read_byte(self.dev_address, RA_WHO_AM_I);
   }
