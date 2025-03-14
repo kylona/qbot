@@ -1,6 +1,5 @@
 mod mpu9250;
 pub use crate::mpu9250::MPU9250;
-pub use crate::mpu9250::read_x_accelerometer;
 mod i2c;
 pub use crate::i2c::read_byte;
 
@@ -28,7 +27,8 @@ mod tests {
 
     #[test]
     fn test_read_accelerometer() {
-        assert!(read_x_accelerometer().is_ok(), "Read accelerometer failed")
+        let mut mpu9250 = MPU9250::new(0x68);
+        assert!(mpu9250.get_acceleration_x().is_ok(), "Read accelerometer failed")
     }
 
     #[test]

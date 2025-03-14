@@ -44,6 +44,45 @@ pub fn write_bytes(dev_addr : u16, reg_addr : u8, length : u8, data : &[u8]) -> 
     return Ok(bytes_written);
 }
 
+pub fn read_word(dev_addr : u16, reg_addr : u8) -> Result<u16> {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
+    i2c.smbus_set_slave_address(dev_addr, false)?;
+    let data = i2c.smbus_read_word_data(reg_addr)?;
+    debug!("Read I2C data: {}", data);
+    return Ok(data);
+}
+
+pub fn write_word(dev_addr : u16, reg_addr : u8, data : u16) -> Result<()> {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
+    i2c.smbus_set_slave_address(dev_addr, false)?;
+    i2c.smbus_write_word_data(reg_addr, data)?;
+    debug!("WROTE I2C data: {}", data);
+    return Ok(());
+}
+
+pub fn read_words(dev_addr : u16, reg_addr : u8, length: u8, data : &mut [u16]) -> Result<u16> {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
+    i2c.smbus_set_slave_address(dev_addr, false)?;
+    let mut words_read = 0;
+    for offset in 0..length {
+        data[offset as usize] = i2c.smbus_read_word_data(reg_addr+offset)?;
+        words_read += 1;
+    }
+    return Ok(words_read);
+}
+
+pub fn write_words(dev_addr : u16, reg_addr : u8, length : u8, data : &[u16]) -> Result<u16> {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
+    i2c.smbus_set_slave_address(dev_addr, false)?;
+    let mut words_written = 0;
+    for offset in 0..length {
+        i2c.smbus_write_word_data(reg_addr+offset, data[offset as usize])?;
+        words_written += 1;
+    }
+    return Ok(words_written);
+}
+
+
 pub fn read_bits(dev_addr : u16, reg_addr : u8, bit_start : u8, length : u8) -> Result<u8> {
     // 01101001 read byte
     // 76543210 bit numbers

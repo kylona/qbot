@@ -2277,16 +2277,83 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
   }
 
 
-/// Read single byte from external sensor data register.
-/// 
-/// These registers store data read from external sensors by the Slave 0, 1, 2,
-/// and 3 on the auxiliary I2C interface. 
-/// 
-/// # Arguments
-/// * `position` - Starting position (0-23)
-///
-/// # Returns
-/// A `Result<u8>` representing the byte read from the register.
+
+  // EXT_SENS_DATA_* registers
+  
+  /** Read single byte from external sensor data register.
+   * These registers store data read from external sensors by the Slave 0, 1, 2,
+   * and 3 on the auxiliary I2C interface. Data read by Slave 4 is stored in
+   * I2C_SLV4_DI (Register 53).
+   *
+   * External sensor data is written to these registers at the Sample Rate as
+   * defined in Register 25. This access rate can be reduced by using the Slave
+   * Delay Enable registers (Register 103).
+   *
+   * External sensor data registers, along with the gyroscope measurement
+   * registers, accelerometer measurement registers, and temperature measurement
+   * registers, are composed of two sets of registers: an internal register set
+   * and a user-facing read register set.
+   *
+   * The data within the external sensors' internal register set is always updated
+   * at the Sample Rate (or the reduced access rate) whenever the serial interface
+   * is idle. This guarantees that a burst read of sensor registers will read
+   * measurements from the same sampling instant. Note that if burst reads are not
+   * used, the user is responsible for ensuring a set of single byte reads
+   * correspond to a single sampling instant by checking the Data Ready interrupt.
+   *
+   * Data is placed in these external sensor data registers according to
+   * I2C_SLV0_CTRL, I2C_SLV1_CTRL, I2C_SLV2_CTRL, and I2C_SLV3_CTRL (Registers 39,
+   * 42, 45, and 48). When more than zero bytes are read (I2C_SLVx_LEN > 0) from
+   * an enabled slave (I2C_SLVx_EN = 1), the slave is read at the Sample Rate (as
+   * defined in Register 25) or delayed rate (if specified in Register 52 and
+   * 103). During each Sample cycle, slave reads are performed in order of Slave
+   * number. If all slaves are enabled with more than zero bytes to be read, the
+   * order will be Slave 0, followed by Slave 1, Slave 2, and Slave 3.
+   *
+   * Each enabled slave will have EXT_SENS_DATA registers associated with it by
+   * number of bytes read (I2C_SLVx_LEN) in order of slave number, starting from
+   * EXT_SENS_DATA_00. Note that this means enabling or disabling a slave may
+   * change the higher numbered slaves' associated registers. Furthermore, if
+   * fewer total bytes are being read from the external sensors as a result of
+   * such a change, then the data remaining in the registers which no longer have
+   * an associated slave device (i.e. high numbered registers) will remain in
+   * these previously allocated registers unless reset.
+   *
+   * If the sum of the read lengths of all SLVx transactions exceed the number of
+   * available EXT_SENS_DATA registers, the excess bytes will be dropped. There
+   * are 24 EXT_SENS_DATA registers and hence the total read lengths between all
+   * the slaves cannot be greater than 24 or some bytes will be lost.
+   *
+   * Note: Slave 4's behavior is distinct from that of Slaves 0-3. For further
+   * information regarding the characteristics of Slave 4, please refer to
+   * Registers 49 to 53.
+   *
+   * EXAMPLE:
+   * Suppose that Slave 0 is enabled with 4 bytes to be read (I2C_SLV0_EN = 1 and
+   * I2C_SLV0_LEN = 4) while Slave 1 is enabled with 2 bytes to be read so that
+   * I2C_SLV1_EN = 1 and I2C_SLV1_LEN = 2. In such a situation, EXT_SENS_DATA _00
+   * through _03 will be associated with Slave 0, while EXT_SENS_DATA _04 and 05
+   * will be associated with Slave 1. If Slave 2 is enabled as well, registers
+   * starting from EXT_SENS_DATA_06 will be allocated to Slave 2.
+   *
+   * If Slave 2 is disabled while Slave 3 is enabled in this same situation, then
+   * registers starting from EXT_SENS_DATA_06 will be allocated to Slave 3
+   * instead.
+   *
+   * REGISTER ALLOCATION FOR DYNAMIC DISABLE VS. NORMAL DISABLE:
+   * If a slave is disabled at any time, the space initially allocated to the
+   * slave in the EXT_SENS_DATA register, will remain associated with that slave.
+   * This is to avoid dynamic adjustment of the register allocation.
+   *
+   * The allocation of the EXT_SENS_DATA registers is recomputed only when (1) all
+   * slaves are disabled, or (2) the I2C_MST_RST bit is set (Register 106).
+   *
+   * This above is also true if one of the slaves gets NACKed and stops
+   * functioning.
+   *
+   * @param position Starting position (0-23)
+   * @return Byte read from register
+   */
 pub fn get_external_sensor_byte(&mut self, position: u8) -> Result<u8> {
     if position > 23 {
         return Err(anyhow!("Invalid Parameter"));
@@ -2326,42 +2393,81 @@ pub fn get_external_sensor_dword(&mut self, position: u8) -> Result<u32> {
     Ok(u32::from_be_bytes(buffer))
 }
 
-/// Get X-axis negative motion detection interrupt status.
+  // MOT_DETECT_STATUS register
+  
+  /** Get X-axis negative motion detection interrupt status.
+   * @return Motion detection status
+   * @see MPU9250_RA_MOT_DETECT_STATUS
+   * @see MPU9250_MOTION_MOT_XNEG_BIT
+   */
 pub fn get_x_neg_motion_detected(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_XNEG_BIT)
 }
 
-/// Get X-axis positive motion detection interrupt status.
+  /** Get X-axis positive motion detection interrupt status.
+   * @return Motion detection status
+   * @see MPU9250_RA_MOT_DETECT_STATUS
+   * @see MPU9250_MOTION_MOT_XPOS_BIT
+   */
 pub fn get_x_pos_motion_detected(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_XPOS_BIT)
 }
 
-/// Get Y-axis negative motion detection interrupt status.
+  /** Get Y-axis negative motion detection interrupt status.
+   * @return Motion detection status
+   * @see MPU9250_RA_MOT_DETECT_STATUS
+   * @see MPU9250_MOTION_MOT_YNEG_BIT
+   */
 pub fn get_y_neg_motion_detected(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_YNEG_BIT)
 }
 
-/// Get Y-axis positive motion detection interrupt status.
+  /** Get Y-axis positive motion detection interrupt status.
+   * @return Motion detection status
+   * @see MPU9250_RA_MOT_DETECT_STATUS
+   * @see MPU9250_MOTION_MOT_YPOS_BIT
+   */
 pub fn get_y_pos_motion_detected(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_YPOS_BIT)
 }
 
-/// Get Z-axis negative motion detection interrupt status.
+  /** Get Z-axis negative motion detection interrupt status.
+   * @return Motion detection status
+   * @see MPU9250_RA_MOT_DETECT_STATUS
+   * @see MPU9250_MOTION_MOT_ZNEG_BIT
+   */
 pub fn get_z_neg_motion_detected(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_ZNEG_BIT)
 }
 
-/// Get Z-axis positive motion detection interrupt status.
+  /** Get Z-axis positive motion detection interrupt status.
+   * @return Motion detection status
+   * @see MPU9250_RA_MOT_DETECT_STATUS
+   * @see MPU9250_MOTION_MOT_ZPOS_BIT
+   */
 pub fn get_z_pos_motion_detected(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_ZPOS_BIT)
 }
 
-/// Get zero motion detection interrupt status.
+  /** Get zero motion detection interrupt status.
+   * @return Motion detection status
+   * @see MPU9250_RA_MOT_DETECT_STATUS
+   * @see MPU9250_MOTION_MOT_ZRMOT_BIT
+   */
 pub fn get_zero_motion_detected(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_MOT_DETECT_STATUS, MOTION_MOT_ZRMOT_BIT)
 }
 
-/// Write byte to Data Output container for specified slave.
+  // I2C_SLV*_DO register
+  
+  /** Write byte to Data Output container for specified slave.
+   * This register holds the output data written into Slave when Slave is set to
+   * write mode. For further information regarding Slave control, please
+   * refer to Registers 37 to 39 and immediately following.
+   * @param num Slave number (0-3)
+   * @param data Byte to write
+   * @see MPU9250_RA_I2C_SLV0_DO
+   */
 pub fn set_slave_output_byte(&mut self, num: u8, data: u8) -> Result<()> {
     if num > 3 {
         return Err(anyhow!("Invalid Parameter"));
@@ -2369,17 +2475,48 @@ pub fn set_slave_output_byte(&mut self, num: u8, data: u8) -> Result<()> {
     i2c::write_byte(self.dev_address, RA_I2C_SLV0_DO + num, data)
 }
 
-/// Get external data shadow delay enabled status.
+  // I2C_MST_DELAY_CTRL register
+
+  /** Get external data shadow delay enabled status.
+   * This register is used to specify the timing of external sensor data
+   * shadowing. When DELAY_ES_SHADOW is set to 1, shadowing of external
+   * sensor data is delayed until all data has been received.
+   * @return Current external data shadow delay enabled status.
+   * @see MPU9250_RA_I2C_MST_DELAY_CTRL
+   * @see MPU9250_DELAYCTRL_DELAY_ES_SHADOW_BIT
+   */
 pub fn get_external_shadow_delay_enabled(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, DELAYCTRL_DELAY_ES_SHADOW_BIT)
 }
 
-/// Set external data shadow delay enabled status.
+  /** Set external data shadow delay enabled status.
+   * @param enabled New external data shadow delay enabled status.
+   * @see getExternalShadowDelayEnabled()
+   * @see MPU9250_RA_I2C_MST_DELAY_CTRL
+   * @see MPU9250_DELAYCTRL_DELAY_ES_SHADOW_BIT
+   */
 pub fn set_external_shadow_delay_enabled(&mut self, enabled: bool) -> Result<()> {
     i2c::write_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, DELAYCTRL_DELAY_ES_SHADOW_BIT, enabled as u8)
 }
 
-/// Get slave delay enabled status.
+  /** Get slave delay enabled status.
+   * When a particular slave delay is enabled, the rate of access for the that
+   * slave device is reduced. When a slave's access rate is decreased relative to
+   * the Sample Rate, the slave is accessed every:
+   *
+   *     1 / (1 + RA_I2C_MST_DELAY_CTRL) // Samples
+   *
+   * This base Sample Rate in turn is determined by SMPLRT_DIV (register  * 25)
+   * and DLPF_CFG (register 26).
+   *
+   * For further information regarding I2C_MST_DLY, please refer to register 52.
+   * For further information regarding the Sample Rate, please refer to register 25.
+   *
+   * @param num Slave number (0-4)
+   * @return Current slave delay enabled status.
+   * @see MPU9250_RA_I2C_MST_DELAY_CTRL
+   * @see MPU9250_DELAYCTRL_I2C_SLV0_DLY_EN_BIT
+   */
 pub fn get_slave_delay_enabled(&mut self, num: u8) -> Result<u8> {
     if num > 4 {
         return Err(anyhow!("Invalid Parameter"));
@@ -2387,7 +2524,12 @@ pub fn get_slave_delay_enabled(&mut self, num: u8) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, num)
 }
 
-/// Set slave delay enabled status.
+  /** Set slave delay enabled status.
+   * @param num Slave number (0-4)
+   * @param enabled New slave delay enabled status.
+   * @see MPU9250_RA_I2C_MST_DELAY_CTRL
+   * @see MPU9250_DELAYCTRL_I2C_SLV0_DLY_EN_BIT
+   */
 pub fn set_slave_delay_enabled(&mut self, num: u8, enabled: bool) -> Result<()> {
     if num > 4 {
         return Err(anyhow!("Invalid Parameter"));
@@ -2395,22 +2537,50 @@ pub fn set_slave_delay_enabled(&mut self, num: u8, enabled: bool) -> Result<()> 
     i2c::write_bit(self.dev_address, RA_I2C_MST_DELAY_CTRL, num, enabled as u8)
 }
 
-/// Reset gyroscope signal path.
+  /** Reset gyroscope signal path.
+   * The reset will revert the signal path analog to digital converters and
+   * filters to their power up configurations.
+   * @see MPU9250_RA_SIGNAL_PATH_RESET
+   * @see MPU9250_PATHRESET_GYRO_RESET_BIT
+   */
 pub fn reset_gyroscope_path(&mut self) -> Result<()> {
     i2c::write_bit(self.dev_address, RA_SIGNAL_PATH_RESET, PATHRESET_GYRO_RESET_BIT, true as u8)
 }
 
-/// Reset accelerometer signal path.
+  /** Reset accelerometer signal path.
+   * The reset will revert the signal path analog to digital converters and
+   * filters to their power up configurations.
+   * @see MPU9250_RA_SIGNAL_PATH_RESET
+   * @see MPU9250_PATHRESET_ACCEL_RESET_BIT
+   */
 pub fn reset_accelerometer_path(&mut self) -> Result<()> {
     i2c::write_bit(self.dev_address, RA_SIGNAL_PATH_RESET, PATHRESET_ACCEL_RESET_BIT, true as u8)
 }
 
-/// Reset temperature sensor signal path.
+  /** Reset temperature sensor signal path.
+   * The reset will revert the signal path analog to digital converters and
+   * filters to their power up configurations.
+   * @see MPU9250_RA_SIGNAL_PATH_RESET
+   * @see MPU9250_PATHRESET_TEMP_RESET_BIT
+   */
 pub fn reset_temperature_path(&mut self) -> Result<()> {
     i2c::write_bit(self.dev_address, RA_SIGNAL_PATH_RESET, PATHRESET_TEMP_RESET_BIT, true as u8)
 }
 
-/// Get accelerometer power-on delay.
+  /** Get accelerometer power-on delay.
+   * The accelerometer data path provides samples to the sensor registers, Motion
+   * detection, Zero Motion detection, and Free Fall detection modules. The
+   * signal path contains filters which must be flushed on wake-up with new
+   * samples before the detection modules begin operations. The default wake-up
+   * delay, of 4ms can be lengthened by up to 3ms. This additional delay is
+   * specified in ACCEL_ON_DELAY in units of 1 LSB = 1 ms. The user may select
+   * any value above zero unless instructed otherwise by InvenSense. Please refer
+   * to Section 8 of the MPU-6000/MPU-9250 Product Specification document for
+   * further information regarding the detection modules.
+   * @return Current accelerometer power-on delay
+   * @see MPU9250_RA_MOT_DETECT_CTRL
+   * @see MPU9250_DETECT_ACCEL_ON_DELAY_BIT
+   */
 pub fn get_accelerometer_power_on_delay(&mut self) -> Result<u8> {
     i2c::read_bits(
         self.dev_address,
@@ -2420,7 +2590,12 @@ pub fn get_accelerometer_power_on_delay(&mut self) -> Result<u8> {
     )
 }
 
-/// Set accelerometer power-on delay.
+  /** Set accelerometer power-on delay.
+   * @param delay New accelerometer power-on delay (0-3)
+   * @see getAccelerometerPowerOnDelay()
+   * @see MPU9250_RA_MOT_DETECT_CTRL
+   * @see MPU9250_DETECT_ACCEL_ON_DELAY_BIT
+   */
 pub fn set_accelerometer_power_on_delay(&mut self, delay: u8) -> Result<()> {
     if delay > 3 {
         return Err(anyhow!("Invalid Parameter"));
@@ -2434,7 +2609,32 @@ pub fn set_accelerometer_power_on_delay(&mut self, delay: u8) -> Result<()> {
     )
 }
 
-/// Get Free Fall detection counter decrement configuration.
+  /** Get Free Fall detection counter decrement configuration.
+   * Detection is registered by the Free Fall detection module after accelerometer
+   * measurements meet their respective threshold conditions over a specified
+   * number of samples. When the threshold conditions are met, the corresponding
+   * detection counter increments by 1. The user may control the rate at which the
+   * detection counter decrements when the threshold condition is not met by
+   * configuring FF_COUNT. The decrement rate can be set according to the
+   * following table:
+   *
+   * <pre>
+   * FF_COUNT | Counter Decrement
+   * ---------+------------------
+   * 0        | Reset
+   * 1        | 1
+   * 2        | 2
+   * 3        | 4
+   * </pre>
+   *
+   * When FF_COUNT is configured to 0 (reset), any non-qualifying sample will
+   * reset the counter to 0. For further information on Free Fall detection,
+   * please refer to Registers 29 to 32.
+   *
+   * @return Current decrement configuration
+   * @see MPU9250_RA_MOT_DETECT_CTRL
+   * @see MPU9250_DETECT_FF_COUNT_BIT
+   */
 pub fn get_freefall_detection_counter_decrement(&mut self) -> Result<u8> {
     i2c::read_bits(
         self.dev_address,
@@ -2444,7 +2644,12 @@ pub fn get_freefall_detection_counter_decrement(&mut self) -> Result<u8> {
     )
 }
 
-/// Set Free Fall detection counter decrement configuration.
+  /** Set Free Fall detection counter decrement configuration.
+   * @param decrement New decrement configuration value
+   * @see getFreefallDetectionCounterDecrement()
+   * @see MPU9250_RA_MOT_DETECT_CTRL
+   * @see MPU9250_DETECT_FF_COUNT_BIT
+   */
 pub fn set_freefall_detection_counter_decrement(&mut self, decrement: u8) -> Result<()> {
     if decrement > 3 {
         return Err(anyhow!("Invalid Parameter"));
@@ -2458,7 +2663,29 @@ pub fn set_freefall_detection_counter_decrement(&mut self, decrement: u8) -> Res
     )
 }
 
-/// Get Motion detection counter decrement configuration.
+  /** Get Motion detection counter decrement configuration.
+   * Detection is registered by the Motion detection module after accelerometer
+   * measurements meet their respective threshold conditions over a specified
+   * number of samples. When the threshold conditions are met, the corresponding
+   * detection counter increments by 1. The user may control the rate at which the
+   * detection counter decrements when the threshold condition is not met by
+   * configuring MOT_COUNT. The decrement rate can be set according to the
+   * following table:
+   *
+   * <pre>
+   * MOT_COUNT | Counter Decrement
+   * ----------+------------------
+   * 0         | Reset
+   * 1         | 1
+   * 2         | 2
+   * 3         | 4
+   * </pre>
+   *
+   * When MOT_COUNT is configured to 0 (reset), any non-qualifying sample will
+   * reset the counter to 0. For further information on Motion detection,
+   * please refer to Registers 29 to 32.
+   *
+   */
 pub fn get_motion_detection_counter_decrement(&mut self) -> Result<u8> {
     i2c::read_bits(
         self.dev_address,
@@ -2468,7 +2695,12 @@ pub fn get_motion_detection_counter_decrement(&mut self) -> Result<u8> {
     )
 }
 
-/// Set Motion detection counter decrement configuration.
+  /** Set Motion detection counter decrement configuration.
+   * @param decrement New decrement configuration value
+   * @see getMotionDetectionCounterDecrement()
+   * @see MPU9250_RA_MOT_DETECT_CTRL
+   * @see MPU9250_DETECT_MOT_COUNT_BIT
+   */
 pub fn set_motion_detection_counter_decrement(&mut self, decrement: u8) -> Result<()> {
     if decrement > 3 {
         return Err(anyhow!("Invalid Parameter"));
@@ -2482,104 +2714,701 @@ pub fn set_motion_detection_counter_decrement(&mut self, decrement: u8) -> Resul
     )
 }
 
-/// Get FIFO enabled status.
+  /** Get FIFO enabled status.
+   * When this bit is set to 0, the FIFO buffer is disabled. The FIFO buffer
+   * cannot be written to or read from while disabled. The FIFO buffer's state
+   * does not change unless the MPU-60X0 is power cycled.
+   * @return Current FIFO enabled status
+   * @see MPU9250_RA_USER_CTRL
+   * @see MPU9250_USERCTRL_FIFO_EN_BIT
+   */
 pub fn get_fifo_enabled(&mut self) -> Result<u8> {
 		i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT)
 }
 
-/// Set FIFO enabled status.
+  /** Set FIFO enabled status.
+   * @param enabled New FIFO enabled status
+   * @see getFIFOEnabled()
+   * @see MPU9250_RA_USER_CTRL
+   * @see MPU9250_USERCTRL_FIFO_EN_BIT
+   */
 pub fn set_fifo_enabled(&mut self, enabled: bool) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT, enabled as u8)
 }
 
-/// Get I2C Master Mode enabled status.
+  /** Get I2C Master Mode enabled status.
+   * When this mode is enabled, the MPU-60X0 acts as the I2C Master to the
+   * external sensor slave devices on the auxiliary I2C bus. When this bit is
+   * cleared to 0, the auxiliary I2C bus lines (AUX_DA and AUX_CL) are logically
+   * driven by the primary I2C bus (SDA and SCL). This is a precondition to
+   * enabling Bypass Mode. For further information regarding Bypass Mode, please
+   * refer to Register 55.
+   * @return Current I2C Master Mode enabled status
+   * @see MPU9250_RA_USER_CTRL
+   * @see MPU9250_USERCTRL_I2C_MST_EN_BIT
+   */
 pub fn get_i2c_master_mode_enabled(&mut self) -> Result<u8> {
 		i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT)
 }
 
-/// Set I2C Master Mode enabled status.
+  /** Set I2C Master Mode enabled status.
+   * @param enabled New I2C Master Mode enabled status
+   * @see getI2CMasterModeEnabled()
+   * @see MPU9250_RA_USER_CTRL
+   * @see MPU9250_USERCTRL_I2C_MST_EN_BIT
+   */
 pub fn set_i2c_master_mode_enabled(&mut self, enabled: bool) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT, enabled as u8)
 }
 
-/// Switch from I2C to SPI mode (MPU-6000 only).
+  /** Switch from I2C to SPI mode (MPU-6000 only)
+   * If this is set, the primary SPI interface will be enabled in place of the
+   * disabled primary I2C interface.
+   */
 pub fn switch_spi_enabled(&mut self, enabled: bool) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_IF_DIS_BIT, enabled as u8)
 }
 
-/// Reset the FIFO.
+  /** Reset the FIFO.
+   * This bit resets the FIFO buffer when set to 1 while FIFO_EN equals 0. This
+   * bit automatically clears to 0 after the reset has been triggered.
+   * @see MPU9250_RA_USER_CTRL
+   * @see MPU9250_USERCTRL_FIFO_RESET_BIT
+   */
 pub fn reset_fifo(&mut self) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_RESET_BIT, 1)
 }
 
-/// Reset the I2C Master.
+  /** Reset the I2C Master.
+   * This bit resets the I2C Master when set to 1 while I2C_MST_EN equals 0.
+   * This bit automatically clears to 0 after the reset has been triggered.
+   * @see MPU9250_RA_USER_CTRL
+   * @see MPU9250_USERCTRL_I2C_MST_RESET_BIT
+   */
 pub fn reset_i2c_master(&mut self) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_RESET_BIT, 1)
 }
 
-/// Reset all sensor registers and signal paths.
+  /** Reset all sensor registers and signal paths.
+   * When set to 1, this bit resets the signal paths for all sensors (gyroscopes,
+   * accelerometers, and temperature sensor). This operation will also clear the
+   * sensor registers. This bit automatically clears to 0 after the reset has been
+   * triggered.
+   *
+   * When resetting only the signal path (and not the sensor registers), please
+   * use Register 104, SIGNAL_PATH_RESET.
+   *
+   * @see MPU9250_RA_USER_CTRL
+   * @see MPU9250_USERCTRL_SIG_COND_RESET_BIT
+   */
 pub fn reset_sensors(&mut self) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_SIG_COND_RESET_BIT, 1)
 }
 
-/// Trigger a full device reset.
+  /** Trigger a full device reset.
+   * A small delay of ~50ms may be desirable after triggering a reset.
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_DEVICE_RESET_BIT
+   */
 pub fn reset(&mut self) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_DEVICE_RESET_BIT, 1)
 }
 
-/// Get sleep mode status.
+  /** Get sleep mode status.
+   * Setting the SLEEP bit in the register puts the device into very low power
+   * sleep mode. In this mode, only the serial interface and internal registers
+   * remain active, allowing for a very low standby current. Clearing this bit
+   * puts the device back into normal mode. To save power, the individual standby
+   * selections for each of the gyros should be used if any gyro axis is not used
+   * by the application.
+   * @return Current sleep mode enabled status
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_SLEEP_BIT
+   */
 pub fn get_sleep_enabled(&mut self) -> Result<u8> {
 		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT)
 }
 
-/// Set sleep mode status.
+  /** Set sleep mode status.
+   * @param enabled New sleep mode enabled status
+   * @see getSleepEnabled()
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_SLEEP_BIT
+   */
 pub fn set_sleep_enabled(&mut self, enabled: bool) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled as u8)
 }
 
-/// Get wake cycle enabled status.
+  /** Get wake cycle enabled status.
+   * When this bit is set to 1 and SLEEP is disabled, the MPU-60X0 will cycle
+   * between sleep mode and waking up to take a single sample of data from active
+   * sensors at a rate determined by LP_WAKE_CTRL (register 108).
+   * @return Current sleep mode enabled status
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_CYCLE_BIT
+   */
 pub fn get_wake_cycle_enabled(&mut self) -> Result<u8> {
 		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT)
 }
 
-/// Set wake cycle enabled status.
+  /** Set wake cycle enabled status.
+   * @param enabled New sleep mode enabled status
+   * @see getWakeCycleEnabled()
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_CYCLE_BIT
+   */
 pub fn set_wake_cycle_enabled(&mut self, enabled: bool) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT, enabled as u8)
 }
 
-/// Get temperature sensor enabled status.
+  /** Get temperature sensor enabled status.
+   * Control the usage of the internal temperature sensor.
+   *
+   * Note: this register stores the *disabled* value, but for consistency with the
+   * rest of the code, the function is named and used with standard true/false
+   * values to indicate whether the sensor is enabled or disabled, respectively.
+   *
+   * @return Current temperature sensor enabled status
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_TEMP_DIS_BIT
+   */
 pub fn get_temp_sensor_enabled(&mut self) -> Result<u8> {
 		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT)
 }
 
-/// Set temperature sensor enabled status.
+  /** Set temperature sensor enabled status.
+   * Note: this register stores the *disabled* value, but for consistency with the
+   * rest of the code, the function is named and used with standard true/false
+   * values to indicate whether the sensor is enabled or disabled, respectively.
+   *
+   * @param enabled New temperature sensor enabled status
+   * @see getTempSensorEnabled()
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_TEMP_DIS_BIT
+   */
 pub fn set_temp_sensor_enabled(&mut self, enabled: bool) -> Result<()> {
 		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT, (!enabled) as u8)
 }
 
-/// Get clock source setting.
+  /** Get clock source setting.
+   * @return Current clock source setting
+   * @see MPU9250_RA_PWR_MGMT_1
+   * @see MPU9250_PWR1_CLKSEL_BIT
+   * @see MPU9250_PWR1_CLKSEL_LENGTH
+   */
 pub fn get_clock_source(&mut self) -> Result<u8> {
 		i2c::read_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH)
 }
 
-/// Set clock source setting.
+/** Set clock source setting.
+* An internal 8MHz oscillator, gyroscope based clock, or external sources can
+* be selected as the MPU-60X0 clock source. When the internal 8 MHz oscillator
+* or an external source is chosen as the clock source, the MPU-60X0 can operate
+* in low power modes with the gyroscopes disabled.
+*
+* Upon power up, the MPU-60X0 clock source defaults to the internal oscillator.
+* However, it is highly recommended that the device be configured to use one of
+* the gyroscopes (or an external clock source) as the clock reference for
+* improved stability. The clock source can be selected according to the following table:
+*
+* <pre>
+* CLK_SEL | Clock Source
+* --------+--------------------------------------
+* 0       | Internal oscillator
+* 1       | PLL with X Gyro reference
+* 2       | PLL with Y Gyro reference
+* 3       | PLL with Z Gyro reference
+* 4       | PLL with external 32.768kHz reference
+* 5       | PLL with external 19.2MHz reference
+* 6       | Reserved
+* 7       | Stops the clock and keeps the timing generator in reset
+* </pre>
+*
+* @param source New clock source setting
+* @see getClockSource()
+* @see MPU9250_RA_PWR_MGMT_1
+* @see MPU9250_PWR1_CLKSEL_BIT
+* @see MPU9250_PWR1_CLKSEL_LENGTH
+*/
 pub fn set_clock_source(&mut self, source: u8) -> Result<()> {
 		i2c::write_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, source)
 }
 
-	
-  pub fn get_device_id(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_WHO_AM_I);
-  }
+// PWR_MGMT_2 register
 
+/** Get wake frequency in Accel-Only Low Power Mode.
+ * The MPU-60X0 can be put into Accerlerometer Only Low Power Mode by setting
+ * PWRSEL to 1 in the Power Management 1 register (Register 107). In this mode,
+ * the device will power off all devices except for the primary I2C interface,
+ * waking only the accelerometer at fixed intervals to take a single
+ * measurement. The frequency of wake-ups can be configured with LP_WAKE_CTRL
+ * as shown below:
+ *
+ * <pre>
+ * LP_WAKE_CTRL | Wake-up Frequency
+ * -------------+------------------
+ * 0            | 1.25 Hz
+ * 1            | 2.5 Hz
+ * 2            | 5 Hz
+ * 3            | 10 Hz
+ * <pre>
+ *
+ * For further information regarding the MPU-60X0's power modes, please refer to
+ * Register 107.
+ *
+ * @return Current wake frequency
+ * @see MPU9250_RA_PWR_MGMT_2
+ */
+pub fn get_wake_frequency(&mut self) -> Result<u8> {
+    i2c::read_bits(self.dev_address, RA_PWR_MGMT_2, PWR2_LP_WAKE_CTRL_BIT, PWR2_LP_WAKE_CTRL_LENGTH)
+        .map(|val| val as u8)
 }
 
-pub fn read_x_accelerometer() -> Result<u16> {
+/** Set wake frequency in Accel-Only Low Power Mode.
+ * @param frequency New wake frequency
+ * @see MPU9250_RA_PWR_MGMT_2
+ */
+pub fn set_wake_frequency(&mut self, frequency: u8) -> Result<()> {
+    i2c::write_bits(self.dev_address, RA_PWR_MGMT_2, PWR2_LP_WAKE_CTRL_BIT, PWR2_LP_WAKE_CTRL_LENGTH, frequency)
+}
 
-    let high = i2c::read_byte(DEFAULT_ADDRESS, RA_ACCEL_XOUT_H)?;
-    let low = i2c::read_byte(DEFAULT_ADDRESS, RA_ACCEL_XOUT_L)?;
-    let data : u16 = ((high as u16) << 8) + (low as u16);
-    println!("Read ACCELEROMETER data: {}", data);
-    return Ok(data);
+/** Get X-axis accelerometer standby enabled status.
+ * If enabled, the X-axis will not gather or report data (or use power).
+ * @return Current X-axis standby enabled status
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_XA_BIT
+ */
+pub fn get_standby_x_accel_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_XA_BIT)
+}
+
+/** Set X-axis accelerometer standby enabled status.
+ * @param enabled New X-axis standby enabled status
+ * @see get_standby_x_accel_enabled()
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_XA_BIT
+ */
+pub fn set_standby_x_accel_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_XA_BIT, enabled)
+}
+
+/** Get Y-axis accelerometer standby enabled status.
+ * If enabled, the Y-axis will not gather or report data (or use power).
+ * @return Current Y-axis standby enabled status
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_YA_BIT
+ */
+pub fn get_standby_y_accel_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_YA_BIT)
+}
+
+/** Set Y-axis accelerometer standby enabled status.
+ * @param enabled New Y-axis standby enabled status
+ * @see get_standby_y_accel_enabled()
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_YA_BIT
+ */
+pub fn set_standby_y_accel_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_YA_BIT, enabled)
+}
+
+/** Get Z-axis accelerometer standby enabled status.
+ * If enabled, the Z-axis will not gather or report data (or use power).
+ * @return Current Z-axis standby enabled status
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_ZA_BIT
+ */
+pub fn get_standby_z_accel_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_ZA_BIT)
+}
+
+/** Set Z-axis accelerometer standby enabled status.
+ * @param enabled New Z-axis standby enabled status
+ * @see get_standby_z_accel_enabled()
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_ZA_BIT
+ */
+pub fn set_standby_z_accel_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_ZA_BIT, enabled)
+}
+
+/** Get X-axis gyroscope standby enabled status.
+ * If enabled, the X-axis will not gather or report data (or use power).
+ * @return Current X-axis standby enabled status
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_XG_BIT
+ */
+pub fn get_standby_x_gyro_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_XG_BIT)
+}
+
+/** Set X-axis gyroscope standby enabled status.
+ * @param enabled New X-axis standby enabled status
+ * @see get_standby_x_gyro_enabled()
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_XG_BIT
+ */
+pub fn set_standby_x_gyro_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_XG_BIT, enabled)
+}
+
+/** Get Y-axis gyroscope standby enabled status.
+ * If enabled, the Y-axis will not gather or report data (or use power).
+ * @return Current Y-axis standby enabled status
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_YG_BIT
+ */
+pub fn get_standby_y_gyro_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_YG_BIT)
+}
+
+/** Set Y-axis gyroscope standby enabled status.
+ * @param enabled New Y-axis standby enabled status
+ * @see get_standby_y_gyro_enabled()
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_YG_BIT
+ */
+pub fn set_standby_y_gyro_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_YG_BIT, enabled)
+}
+
+/** Get Z-axis gyroscope standby enabled status.
+ * If enabled, the Z-axis will not gather or report data (or use power).
+ * @return Current Z-axis standby enabled status
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_ZG_BIT
+ */
+pub fn get_standby_z_gyro_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_ZG_BIT)
+}
+
+/** Set Z-axis gyroscope standby enabled status.
+ * @param enabled New Z-axis standby enabled status
+ * @see get_standby_z_gyro_enabled()
+ * @see MPU9250_RA_PWR_MGMT_2
+ * @see MPU9250_PWR2_STBY_ZG_BIT
+ */
+pub fn set_standby_z_gyro_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_2, PWR2_STBY_ZG_BIT, enabled)
+}
+
+// FIFO_COUNT* registers
+
+/** Get current FIFO buffer size.
+ * This value indicates the number of bytes stored in the FIFO buffer. This
+ * number is in turn the number of bytes that can be read from the FIFO buffer
+ * and it is directly proportional to the number of samples available given the
+ * set of sensor data bound to be stored in the FIFO (register 35 and 36).
+ * @return Current FIFO buffer size
+ */
+pub fn get_fifo_count(&self) -> Result<u16> {
+    let mut buffer = [0; 2];
+    i2c::read_bytes(self.dev_address, RA_FIFO_COUNTH, 2, &mut buffer);
+		Ok(((buffer[1] as u16) << 8) | buffer[0] as u16)
+}
+
+// FIFO_R_W register
+
+/** Get byte from FIFO buffer.
+ * This register is used to read and write data from the FIFO buffer. Data is
+ * written to the FIFO in order of register number (from lowest to highest). If
+ * all the FIFO enable flags (see below) are enabled and all External Sensor
+ * Data registers (Registers 73 to 96) are associated with a Slave device, the
+ * contents of registers 59 through 96 will be written in order at the Sample
+ * Rate.
+ *
+ * The contents of the sensor data registers (Registers 59 to 96) are written
+ * into the FIFO buffer when their corresponding FIFO enable flags are set to 1
+ * in FIFO_EN (Register 35). An additional flag for the sensor data registers
+ * associated with I2C Slave 3 can be found in I2C_MST_CTRL (Register 36).
+ *
+ * If the FIFO buffer has overflowed, the status bit FIFO_OFLOW_INT is
+ * automatically set to 1. This bit is located in INT_STATUS (Register 58).
+ * When the FIFO buffer has overflowed, the oldest data will be lost and new
+ * data will be written to the FIFO.
+ *
+ * If the FIFO buffer is empty, reading this register will return the last byte
+ * that was previously read from the FIFO until new data is available. The user
+ * should check FIFO_COUNT to ensure that the FIFO buffer is not read when
+ * empty.
+ *
+ * @return Byte from FIFO buffer
+ */
+pub fn get_fifo_byte(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_FIFO_R_W)
+}
+
+/** Write byte to FIFO buffer.
+ * @see get_fifo_byte()
+ * @see MPU9250_RA_FIFO_R_W
+ */
+pub fn set_fifo_byte(&self, data: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_FIFO_R_W, data)
+}
+
+// WHO_AM_I register
+
+/** Get Device ID.
+ * This register is used to verify the identity of the device (0b110100, 0x34).
+ * @return Device ID (6 bits only! should be 0x34)
+ * @see MPU9250_RA_WHO_AM_I
+ * @see MPU9250_WHO_AM_I_BIT
+ * @see MPU9250_WHO_AM_I_LENGTH
+ */
+pub fn get_device_id(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_WHO_AM_I)
+}
+
+/** Set Device ID.
+ * Write a new ID into the WHO_AM_I register (no idea why this should ever be
+ * necessary though).
+ * @param id New device ID to set.
+ * @see get_device_id()
+ * @see MPU9250_RA_WHO_AM_I
+ * @see MPU9250_WHO_AM_I_BIT
+ * @see MPU9250_WHO_AM_I_LENGTH
+ */
+pub fn set_device_id(&self, id: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_WHO_AM_I, id)
+}
+
+// ======== UNDOCUMENTED/DMP REGISTERS/METHODS ========
+
+// XG_OFFS_TC register
+
+pub fn get_otp_bank_valid(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_XG_OFFS_TC, TC_OTP_BNK_VLD_BIT)
+}
+
+pub fn set_otp_bank_valid(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_XG_OFFS_TC, TC_OTP_BNK_VLD_BIT, enabled)
+}
+
+pub fn get_x_gyro_offset(&self) -> Result<u8> {
+    i2c::read_bits(self.dev_address, RA_XG_OFFS_TC, TC_OFFSET_BIT, TC_OFFSET_LENGTH)
+}
+
+pub fn set_x_gyro_offset(&self, offset: u8) -> Result<()> {
+    i2c::write_bits(self.dev_address, RA_XG_OFFS_TC, TC_OFFSET_BIT, TC_OFFSET_LENGTH, offset)
+}
+
+// YG_OFFS_TC register
+
+pub fn get_y_gyro_offset(&self) -> Result<u8> {
+    i2c::read_bits(self.dev_address, RA_YG_OFFS_TC, TC_OFFSET_BIT, TC_OFFSET_LENGTH)
+}
+
+pub fn set_y_gyro_offset(&self, offset: u8) -> Result<()> {
+    i2c::write_bits(self.dev_address, RA_YG_OFFS_TC, TC_OFFSET_BIT, TC_OFFSET_LENGTH, offset)
+}
+
+// ZG_OFFS_TC register
+
+pub fn get_z_gyro_offset(&self) -> Result<u8> {
+    i2c::read_bits(self.dev_address, RA_ZG_OFFS_TC, TC_OFFSET_BIT, TC_OFFSET_LENGTH)
+}
+
+pub fn set_z_gyro_offset(&self, offset: u8) -> Result<()> {
+    i2c::write_bits(self.dev_address, RA_ZG_OFFS_TC, TC_OFFSET_BIT, TC_OFFSET_LENGTH, offset)
+}
+
+// X_FINE_GAIN register
+
+pub fn get_x_fine_gain(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_X_FINE_GAIN)
+}
+
+pub fn set_x_fine_gain(&self, gain: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_X_FINE_GAIN, gain)
+}
+
+// Y_FINE_GAIN register
+
+pub fn get_y_fine_gain(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_Y_FINE_GAIN)
+}
+
+pub fn set_y_fine_gain(&self, gain: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_Y_FINE_GAIN, gain)
+}
+
+// Z_FINE_GAIN register
+
+pub fn get_z_fine_gain(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_Z_FINE_GAIN)
+}
+
+pub fn set_z_fine_gain(&self, gain: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_Z_FINE_GAIN, gain)
+}
+
+// XA_OFFS_* registers
+
+pub fn get_x_accel_offset(&self) -> Result<i16> {
+    let mut buffer = [0; 2];
+    i2c::read_bytes(self.dev_address, RA_XA_OFFS_H, 2, &mut buffer);
+    Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
+}
+
+pub fn set_x_accel_offset(&self, offset: u16) -> Result<()> {
+    i2c::write_word(self.dev_address, RA_XA_OFFS_H, offset)
+}
+
+// YA_OFFS_* register
+
+pub fn get_y_accel_offset(&self) -> Result<i16> {
+    let mut buffer = [0; 2];
+    i2c::read_bytes(self.dev_address, RA_YA_OFFS_H, 2, &mut buffer);
+    Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
+}
+
+pub fn set_y_accel_offset(&self, offset: u16) -> Result<()> {
+    i2c::write_word(self.dev_address, RA_YA_OFFS_H, offset)
+}
+
+// ZA_OFFS_* register
+
+pub fn get_z_accel_offset(&self) -> Result<i16> {
+    let mut buffer = [0; 2];
+    i2c::read_bytes(self.dev_address, RA_ZA_OFFS_H, 2, &mut buffer);
+    Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
+}
+
+pub fn set_z_accel_offset(&self, offset: u16) -> Result<()> {
+    i2c::write_word(self.dev_address, RA_ZA_OFFS_H, offset)
+}
+
+// XG_OFFS_USR* registers
+
+pub fn get_x_gyro_offset_user(&self) -> Result<i16> {
+    let mut buffer = [0; 2];
+    i2c::read_bytes(self.dev_address, RA_XG_OFFS_USRH, 2, &mut buffer);
+    Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
+}
+
+pub fn set_x_gyro_offset_user(&self, offset: u16) -> Result<()> {
+    i2c::write_word(self.dev_address, RA_XG_OFFS_USRH, offset)
+}
+
+// YG_OFFS_USR* register
+
+pub fn get_y_gyro_offset_user(&self) -> Result<i16> {
+    let mut buffer = [0; 2];
+    i2c::read_bytes(self.dev_address, RA_YG_OFFS_USRH, 2, &mut buffer);
+    Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
+}
+
+pub fn set_y_gyro_offset_user(&self, offset: u16) -> Result<()> {
+    i2c::write_word(self.dev_address, RA_YG_OFFS_USRH, offset)
+}
+
+// ZG_OFFS_USR* register
+
+pub fn get_z_gyro_offset_user(&self) -> Result<i16> {
+    let mut buffer = [0; 2];
+    i2c::read_bytes(self.dev_address, RA_ZG_OFFS_USRH, 2, &mut buffer);
+    Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
+}
+
+pub fn set_z_gyro_offset_user(&self, offset: u16) -> Result<()> {
+    i2c::write_word(self.dev_address, RA_ZG_OFFS_USRH, offset)
+}
+
+// INT_ENABLE register (DMP functions)
+
+pub fn get_int_pll_ready_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_PLL_RDY_INT_BIT)
+}
+
+pub fn set_int_pll_ready_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_PLL_RDY_INT_BIT, enabled)
+}
+
+pub fn get_int_dmp_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_DMP_INT_BIT)
+}
+
+pub fn set_int_dmp_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_INT_ENABLE, INTERRUPT_DMP_INT_BIT, enabled)
+}
+
+// DMP_INT_STATUS
+
+pub fn get_dmp_int5_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_DMP_INT_STATUS, DMPINT_5_BIT)
+}
+
+pub fn get_dmp_int4_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_DMP_INT_STATUS, DMPINT_4_BIT)
+}
+
+pub fn get_dmp_int3_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_DMP_INT_STATUS, DMPINT_3_BIT)
+}
+
+pub fn get_dmp_int2_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_DMP_INT_STATUS, DMPINT_2_BIT)
+}
+
+pub fn get_dmp_int1_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_DMP_INT_STATUS, DMPINT_1_BIT)
+}
+
+pub fn get_dmp_int0_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_DMP_INT_STATUS, DMPINT_0_BIT)
+}
+
+// INT_STATUS register (DMP functions)
+
+pub fn get_int_pll_ready_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_PLL_RDY_INT_BIT)
+}
+
+pub fn get_int_dmp_status(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_DMP_INT_BIT)
+}
+
+// USER_CTRL register (DMP functions)
+
+pub fn get_dmp_enabled(&self) -> Result<u8> {
+    i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_DMP_EN_BIT)
+}
+
+pub fn set_dmp_enabled(&self, enabled: u8) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_DMP_EN_BIT, enabled)
+}
+
+pub fn reset_dmp(&self) -> Result<()> {
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_DMP_RESET_BIT, 1)
+}
+
+// BANK_SEL register
+
+pub fn set_memory_bank(&self, bank: u8, prefetch_enabled: u8, user_bank: u8) -> Result<()> {
+    let mut bank_value = bank & 0x1F;
+    if user_bank != 0 { bank_value |= 0x20; }
+    if prefetch_enabled != 0 { bank_value |= 0x40; }
+    i2c::write_byte(self.dev_address, RA_BANK_SEL, bank_value)
+}
+
+// MEM_START_ADDR register
+
+pub fn set_memory_start_address(&self, address: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_MEM_START_ADDR, address)
+}
+
+// MEM_R_W register
+
+pub fn read_memory_byte(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_MEM_R_W)
+}
+
+pub fn write_memory_byte(&self, data: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_MEM_R_W, data)
+}
+
+
+
+
 }
 
