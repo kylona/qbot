@@ -10,7 +10,7 @@ mod tests {
 
     #[test]
     fn test_get_device_id() {
-        let mut mpu9250 = MPU9250::new(0x68);
+        let mpu9250 = MPU9250::new(0x68);
         assert_eq!(mpu9250.get_device_id().unwrap(), 0x71, "Device Id should be 0x71")
     }
 

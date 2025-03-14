@@ -2504,7 +2504,9 @@ pub fn set_external_shadow_delay_enabled(&mut self, enabled: bool) -> Result<()>
    * slave device is reduced. When a slave's access rate is decreased relative to
    * the Sample Rate, the slave is accessed every:
    *
-   *     1 / (1 + RA_I2C_MST_DELAY_CTRL) // Samples
+   *    //```no_run
+   *     1 / (1 + RA_I2C_MST_DELAY_CTRL); // Samples
+   *    //```
    *
    * This base Sample Rate in turn is determined by SMPLRT_DIV (register  * 25)
    * and DLPF_CFG (register 26).
@@ -3448,20 +3450,110 @@ pub fn read_memory_block(&self, data: &mut [u8], data_size: u16, mut bank: u8, m
     Ok(())
 }
 
-pub fn write_memory_block(&self, data: &[u8], data_size: u16, bank: u8, address: u8, verify: bool, use_prog_mem: bool) -> Result<()> {
+// Omit use_prog_mem as memory constraints in linux environments are not often as tight
+pub fn write_memory_block(&self, data: &[u8], data_size: u16, mut bank: u8, mut address: u8, verify: bool) -> Result<()> {
+    self.set_memory_bank(bank, false, false);
+    self.set_memory_start_address(address);
+    let mut verify_buffer = [0u8; DMP_MEMORY_CHUNK_SIZE as usize];
+    let mut prog_buffer = [0u8; DMP_MEMORY_CHUNK_SIZE as usize];
+    let mut chunk_size : u8 = 0;
+    let mut i : u16 = 0;
+    while i < data_size {
+        // determine correct chunk size according to bank position and data size
+        chunk_size = DMP_MEMORY_CHUNK_SIZE;
+
+        // make sure we don't go past the data size
+        if (i + chunk_size as u16 > data_size) {
+            chunk_size = (data_size - i) as u8; 
+        }  
+
+        // make sure this chunk doesn't go past the bank boundary (256 bytes)
+        // This ensures that wrapping_add will only wrap to exactly 0
+        if (chunk_size as u16 > 256 - address as u16) {
+            chunk_size = ((256 - address as u16) & 0xFF).try_into().unwrap();
+        }
+
+        // write the chunk of data as specified
+        i2c::write_bytes(self.dev_address, RA_MEM_R_W, chunk_size, &data[i as usize .. (i as usize + chunk_size as usize)])?;
+
+        if (verify) {
+            self.set_memory_bank(bank, false, false);
+            self.set_memory_start_address(address);
+            // read the chunk of data as specified
+            i2c::read_bytes(self.dev_address, RA_MEM_R_W, chunk_size, &mut verify_buffer[i as usize .. (i as usize + chunk_size as usize)])?;
+            if (data[i as usize .. (i as usize + chunk_size as usize)] == verify_buffer[i as usize .. (i as usize + chunk_size as usize)]) {
+                return Err(anyhow!("Write Verify Failed")) // uh oh.
+            }
+
+        }
+
+        // increase byte index by [chunk_size]
+        i += chunk_size as u16;
+
+        // automatically wraps to 0 at 256
+        address = address.wrapping_add(chunk_size);
+
+        // if we aren't done, update bank (if necessary) and address
+        if i < data_size {
+            if address == 0 {
+                bank += 1;
+            }
+            self.set_memory_bank(bank, false, false);
+            self.set_memory_start_address(address);
+        }
+    }
     Ok(())
 }
 
-pub fn write_prog_memory_block(&self, data: &[u8], data_size: u16, bank: u8, address: u8, verify: bool) -> Result<()> {
-    self.write_memory_block(data, data_size, bank, address, verify, true)
-}
+pub fn write_dmp_configuration_set(&self, data: &[u8], data_size: u16) -> Result<()> {
+    let mut success : u8 = 0;
+    let mut special : u8 = 0;
 
-pub fn write_dmp_configuration_set(&self, data: &[u8], data_size: u16, use_prog_mem: bool) -> Result<()> {
+    let mut i : u16 = 0;
+    let mut bank : u8 = 0;
+    let mut offset : u8 = 0;
+    let mut length : u8 = 0;
+
+    // config set data is a long string of blocks with the following structure:
+    // [bank] [offset] [length] [byte[0], byte[1], ..., byte[length]]
+    // write data or perform special action
+    while i < data_size {
+        bank = data[i as usize];
+        i += 1;
+        offset = data[i as usize];
+        i += 1;
+        length = data[i as usize];
+    }
+
+    // write data or perform special action
+    if length > 0 {
+       self.write_memory_block(&data[i as usize .. (i as usize + length as usize)], length as u16, bank, offset, true)?;
+       i += length as u16;
+    }
+    else {
+        // special instruction
+        // NOTE: this kind of behavior (what and when to do certain things)
+        // is totally undocumented. This code is in here based on observed
+        // behavior only, and exactly why (or even whether) it has to be here
+        // is anybody's guess for now.
+
+        special = data[i as usize];
+        i += 1;
+        match special {
+            0x01 => {
+                // enable DMP-related interrupts
+                //setIntZeroMotionEnabled(true);
+                //setIntFIFOBufferOverflowEnabled(true);
+                //setIntDMPEnabled(true);
+                i2c::write_byte(self.dev_address, RA_INT_ENABLE, 0x32);  // simgle operation
+            },
+            _ => {
+                return Err(anyhow!("Unknown Special Command"));
+            }
+        }
+    }
+
     Ok(())
-}
-
-pub fn write_prog_dmp_configuration_set(&self, data: &[u8], data_size: u16) -> Result<()> {
-    self.write_dmp_configuration_set(data, data_size, true)
 }
 
 // DMP_CFG_1 register

@@ -44,6 +44,7 @@ pub fn write_bytes(dev_addr : u16, reg_addr : u8, length : u8, data : &[u8]) -> 
     return Ok(bytes_written);
 }
 
+#[allow(unused)]
 pub fn read_word(dev_addr : u16, reg_addr : u8) -> Result<u16> {
     let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
     i2c.smbus_set_slave_address(dev_addr, false)?;
@@ -60,6 +61,7 @@ pub fn write_word(dev_addr : u16, reg_addr : u8, data : u16) -> Result<()> {
     return Ok(());
 }
 
+#[allow(unused)]
 pub fn read_words(dev_addr : u16, reg_addr : u8, length: u8, data : &mut [u16]) -> Result<u16> {
     let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
     i2c.smbus_set_slave_address(dev_addr, false)?;
@@ -71,6 +73,7 @@ pub fn read_words(dev_addr : u16, reg_addr : u8, length: u8, data : &mut [u16]) 
     return Ok(words_read);
 }
 
+#[allow(unused)]
 pub fn write_words(dev_addr : u16, reg_addr : u8, length : u8, data : &[u16]) -> Result<u16> {
     let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
     i2c.smbus_set_slave_address(dev_addr, false)?;
