@@ -40,13 +40,15 @@ use anyhow::anyhow;
 pub mod mpu9150 {
 
     //Magnetometer Registers
-    pub const RA_MAG_ADDRESS : u16 = 0x0C;
-    pub const RA_MAG_XOUT_L   : u8 = 0x03;
-    pub const RA_MAG_XOUT_H   : u8 = 0x04;
-    pub const RA_MAG_YOUT_L   : u8 = 0x05;
-    pub const RA_MAG_YOUT_H   : u8 = 0x06;
-    pub const RA_MAG_ZOUT_L   : u8 = 0x07;
-    pub const RA_MAG_ZOUT_H   : u8 = 0x08;
+    pub const RA_MAG_ADDRESS      : u16 = 0x0C;
+    pub const RA_MAG_CTRL          : u8 = 0x0A;
+    pub const RA_MAG_CTRL_SNGL_MSR : u8 = 0x01;
+    pub const RA_MAG_XOUT_L        : u8 = 0x03;
+    pub const RA_MAG_XOUT_H        : u8 = 0x04;
+    pub const RA_MAG_YOUT_L        : u8 = 0x05;
+    pub const RA_MAG_YOUT_H        : u8 = 0x06;
+    pub const RA_MAG_ZOUT_L        : u8 = 0x07;
+    pub const RA_MAG_ZOUT_H        : u8 = 0x08;
 
 }
 
@@ -447,7 +449,11 @@ impl MPU9250 {
    */
   pub fn initialize(&mut self) -> Result<()> {
     self.set_clock_source(CLOCK_PLL_XGYRO);
-    return Ok(());
+    self.set_full_scale_gyro_range(GYRO_FS_250);
+    self.set_full_scale_accel_range(ACCEL_FS_2);
+    self.set_sleep_enabled(false);
+    
+    Ok(())
   }
 
   /** Verify the I2C connection.
@@ -2071,13 +2077,13 @@ pub fn get_int_data_ready_status(&mut self) -> Result<u8> {
 pub fn get_motion_9(&mut self) -> Result<(AccelerometerData, GyroscopeData, MagnetometerData)> {
   //get accel and gyro
   let (accelerometer_data, gyroscope_data) = self.get_motion_6()?;
-    
+  // This must be repeated for each pass through read to the peripheral device 
+  // This does not seem to be documented in the data sheet
+  self.set_i2c_bypass_enabled(true);
+  std::thread::sleep(std::time::Duration::from_millis(10));
+  self.set_magnetometer_enabled(true);
+  std::thread::sleep(std::time::Duration::from_millis(10));
   //read mag
-  //TODO should this be done as part of init instead?
-  //I2Cdev::writeByte(devAddr, MPU9250_RA_INT_PIN_CFG, 0x02); //set i2c bypass enable pin to true to access magnetometer
-  //delay(10);
-  //I2Cdev::writeByte(MPU9150_RA_MAG_ADDRESS, 0x0A, 0x01); //enable the magnetometer
-  //delay(10);
   let mut buffer = [0; 6];
   i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer);
   let magnetometer_data = MagnetometerData {
@@ -2839,6 +2845,10 @@ pub fn get_sleep_enabled(&mut self) -> Result<u8> {
    */
 pub fn set_sleep_enabled(&mut self, enabled: bool) -> Result<()> {
     i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled as u8)
+}
+
+pub fn set_magnetometer_enabled(&mut self, enabled: bool) -> Result<()> {
+    i2c::write_byte(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_CTRL, mpu9150::RA_MAG_CTRL_SNGL_MSR)
 }
 
   /** Get wake cycle enabled status.
