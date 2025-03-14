@@ -406,19 +406,19 @@ const DMP_MEMORY_CHUNK_SIZE : u8 = 16;
 
 // ACCEL_*OUT_* registers
 pub struct AccelerometerData {
-	pub x: i16,
-	pub y: i16,
-	pub z: i16,
+  pub x: i16,
+  pub y: i16,
+  pub z: i16,
 }
 pub struct GyroscopeData {
-	pub x: i16,
-	pub y: i16,
-	pub z: i16,
+  pub x: i16,
+  pub y: i16,
+  pub z: i16,
 }
 pub struct MagnetometerData {
-	pub x: i16,
-	pub y: i16,
-	pub z: i16,
+  pub x: i16,
+  pub y: i16,
+  pub z: i16,
 }
 
 
@@ -1280,7 +1280,7 @@ impl MPU9250 {
    */
   pub fn set_slave_address(&mut self, num : u8, address : u8) -> Result<()> {
     if (num > 3) {
-		  return Err(anyhow!("Slave number must be less than 4"));
+      return Err(anyhow!("Slave number must be less than 4"));
     }
     return i2c::write_byte(self.dev_address, RA_I2C_SLV0_ADDR + num*3, address);
   }
@@ -1297,7 +1297,7 @@ impl MPU9250 {
    */
   pub fn get_slave_register(&mut self, num : u8) -> Result<u8> {
     if (num > 3) {
-		  return Err(anyhow!("Slave number must be less than 4"));
+      return Err(anyhow!("Slave number must be less than 4"));
     }
     return i2c::read_byte(self.dev_address, RA_I2C_SLV0_REG + num*3);
   }
@@ -1309,7 +1309,7 @@ impl MPU9250 {
    */
   pub fn set_slave_register(&mut self, num : u8, register : u8) -> Result<()> {
     if (num > 3) {
-		  return Err(anyhow!("Slave number must be less than 4"));
+      return Err(anyhow!("Slave number must be less than 4"));
     }
     return i2c::write_byte(self.dev_address, RA_I2C_SLV0_REG + num*3, register);
   }
@@ -1320,10 +1320,10 @@ impl MPU9250 {
   * @see MPU9250_RA_I2C_SLV0_CTRL
   */
  pub fn get_slave_enabled(&self, num: u8) -> Result<u8> {
- 		if num > 3 {
- 				return Err(anyhow!("Slave number must be between 0 and 3"));
- 		}
- 		i2c::read_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_EN_BIT)
+     if num > 3 {
+         return Err(anyhow!("Slave number must be between 0 and 3"));
+     }
+     i2c::read_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_EN_BIT)
  }
  
  /** Set whether the specified slave (0-3) is enabled.
@@ -1332,10 +1332,10 @@ impl MPU9250 {
   * @see MPU9250_RA_I2C_SLV0_CTRL
   */
  pub fn set_slave_enabled(&self, num: u8, enabled: bool) -> Result<()> {
- 		if num > 3 {
- 				return Err(anyhow!("Slave number must be between 0 and 3"));
- 		}
- 		i2c::write_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_EN_BIT, enabled as u8)
+     if num > 3 {
+         return Err(anyhow!("Slave number must be between 0 and 3"));
+     }
+     i2c::write_bit(self.dev_address, RA_I2C_SLV0_CTRL + num * 3, I2C_SLV_EN_BIT, enabled as u8)
  }
 
  /** Get word pair byte-swapping enabled for the specified slave (0-3).
@@ -2069,23 +2069,23 @@ pub fn get_int_data_ready_status(&mut self) -> Result<u8> {
  * @see MPU9250_RA_ACCEL_XOUT_H
  */
 pub fn get_motion_9(&mut self) -> Result<(AccelerometerData, GyroscopeData, MagnetometerData)> {
-	//get accel and gyro
+  //get accel and gyro
   let (accelerometer_data, gyroscope_data) = self.get_motion_6()?;
     
-	//read mag
-	//TODO should this be done as part of init instead?
-	//I2Cdev::writeByte(devAddr, MPU9250_RA_INT_PIN_CFG, 0x02); //set i2c bypass enable pin to true to access magnetometer
-	//delay(10);
-	//I2Cdev::writeByte(MPU9150_RA_MAG_ADDRESS, 0x0A, 0x01); //enable the magnetometer
-	//delay(10);
-	let mut buffer = [0; 6];
-	i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer);
-	let magnetometer_data = MagnetometerData {
-			x : ((buffer[1] as i16) << 8) | buffer[0] as i16,
-			y : ((buffer[3] as i16) << 8) | buffer[2] as i16,
-			z : ((buffer[5] as i16) << 8) | buffer[4] as i16,
+  //read mag
+  //TODO should this be done as part of init instead?
+  //I2Cdev::writeByte(devAddr, MPU9250_RA_INT_PIN_CFG, 0x02); //set i2c bypass enable pin to true to access magnetometer
+  //delay(10);
+  //I2Cdev::writeByte(MPU9150_RA_MAG_ADDRESS, 0x0A, 0x01); //enable the magnetometer
+  //delay(10);
+  let mut buffer = [0; 6];
+  i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer);
+  let magnetometer_data = MagnetometerData {
+      x : ((buffer[1] as i16) << 8) | buffer[0] as i16,
+      y : ((buffer[3] as i16) << 8) | buffer[2] as i16,
+      z : ((buffer[5] as i16) << 8) | buffer[4] as i16,
   };
-	Ok((accelerometer_data, gyroscope_data, magnetometer_data))
+  Ok((accelerometer_data, gyroscope_data, magnetometer_data))
 }
 
 
@@ -2096,20 +2096,20 @@ pub fn get_motion_9(&mut self) -> Result<(AccelerometerData, GyroscopeData, Magn
    * @see MPU9250_RA_ACCEL_XOUT_H
    */
 pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
-	let mut buffer = [0; 14];
-	i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 14, &mut buffer);
-	let accelerometer_data = AccelerometerData {
-			x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
-			y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
-			z : ((buffer[4] as i16) << 8) | buffer[5] as i16,
+  let mut buffer = [0; 14];
+  i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 14, &mut buffer);
+  let accelerometer_data = AccelerometerData {
+      x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
+      y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
+      z : ((buffer[4] as i16) << 8) | buffer[5] as i16,
   };
-	let gyroscope_data = GyroscopeData {
-			x : ((buffer[8] as i16) << 8) | buffer[9] as i16,
-			y : ((buffer[10] as i16) << 8) | buffer[11] as i16,
-			z : ((buffer[12] as i16) << 8) | buffer[13] as i16,
+  let gyroscope_data = GyroscopeData {
+      x : ((buffer[8] as i16) << 8) | buffer[9] as i16,
+      y : ((buffer[10] as i16) << 8) | buffer[11] as i16,
+      z : ((buffer[12] as i16) << 8) | buffer[13] as i16,
   };
-	Ok((accelerometer_data, gyroscope_data))
-	
+  Ok((accelerometer_data, gyroscope_data))
+  
 }
 
 
@@ -2150,12 +2150,12 @@ pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
    * @see MPU9250_RA_GYRO_XOUT_H
    */
 pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
-	let mut buffer = [0; 6];
-	i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 6, &mut buffer);
-	Ok(AccelerometerData {
-			x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
-			y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
-			z : ((buffer[4] as i16) << 8) | buffer[5] as i16,
+  let mut buffer = [0; 6];
+  i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 6, &mut buffer);
+  Ok(AccelerometerData {
+      x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
+      y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
+      z : ((buffer[4] as i16) << 8) | buffer[5] as i16,
   })
 }
 
@@ -2165,9 +2165,9 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    * @see MPU9250_RA_ACCEL_XOUT_H
    */
   pub fn get_acceleration_x(&mut self) -> Result<i16> {
-			let mut buffer = [0; 2];
-			i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 2, &mut buffer);
-			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
+      let mut buffer = [0; 2];
+      i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 2, &mut buffer);
+      return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
   /** Get Y-axis accelerometer reading.
@@ -2176,9 +2176,9 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    * @see MPU9250_RA_ACCEL_YOUT_H
    */
   pub fn get_acceleration_y(&mut self) -> Result<i16> {
-			let mut buffer = [0; 2];
-			i2c::read_bytes(self.dev_address, RA_ACCEL_YOUT_H, 2, &mut buffer);
-			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
+      let mut buffer = [0; 2];
+      i2c::read_bytes(self.dev_address, RA_ACCEL_YOUT_H, 2, &mut buffer);
+      return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
   /** Get Z-axis accelerometer reading.
@@ -2187,9 +2187,9 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    * @see MPU9250_RA_ACCEL_ZOUT_H
    */
   pub fn get_acceleration_z(&mut self) -> Result<i16> {
-			let mut buffer = [0; 2];
-			i2c::read_bytes(self.dev_address, RA_ACCEL_ZOUT_H, 2, &mut buffer);
-			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
+      let mut buffer = [0; 2];
+      i2c::read_bytes(self.dev_address, RA_ACCEL_ZOUT_H, 2, &mut buffer);
+      return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
   // TEMP_OUT_* registers
@@ -2199,9 +2199,9 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    * @see MPU9250_RA_TEMP_OUT_H
    */
   pub fn get_temperature(&mut self) -> Result<i16> {
-			let mut buffer = [0; 2];
-			i2c::read_bytes(self.dev_address, RA_TEMP_OUT_H, 2, &mut buffer);
-			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
+      let mut buffer = [0; 2];
+      i2c::read_bytes(self.dev_address, RA_TEMP_OUT_H, 2, &mut buffer);
+      return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
 
@@ -2237,12 +2237,12 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    * @see MPU9250_RA_GYRO_XOUT_H
    */
 pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
-	let mut buffer = [0; 6];
-	i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 6, &mut buffer);
-	Ok(GyroscopeData {
-			x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
-			y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
-			z : ((buffer[4] as i16) << 8) | buffer[5] as i16,
+  let mut buffer = [0; 6];
+  i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 6, &mut buffer);
+  Ok(GyroscopeData {
+      x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
+      y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
+      z : ((buffer[4] as i16) << 8) | buffer[5] as i16,
   })
 }
   /** Get X-axis gyroscope reading.
@@ -2251,9 +2251,9 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
    * @see MPU9250_RA_GYRO_XOUT_H
    */
   pub fn get_rotation_x(&mut self) -> Result<i16> {
-			let mut buffer = [0; 2];
-			i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 2, &mut buffer);
-			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
+      let mut buffer = [0; 2];
+      i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 2, &mut buffer);
+      return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
   /** Get Y-axis gyroscope reading.
    * @return Y-axis rotation measurement in 16-bit 2's complement format
@@ -2261,9 +2261,9 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
    * @see MPU9250_RA_GYRO_YOUT_H
    */
   pub fn get_rotation_y(&mut self) -> Result<i16> {
-			let mut buffer = [0; 2];
-			i2c::read_bytes(self.dev_address, RA_GYRO_YOUT_H, 2, &mut buffer);
-			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
+      let mut buffer = [0; 2];
+      i2c::read_bytes(self.dev_address, RA_GYRO_YOUT_H, 2, &mut buffer);
+      return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
   /** Get Z-axis gyroscope reading.
    * @return Z-axis rotation measurement in 16-bit 2's complement format
@@ -2271,9 +2271,9 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
    * @see MPU9250_RA_GYRO_ZOUT_H
    */
   pub fn get_rotation_z(&mut self) -> Result<i16> {
-			let mut buffer = [0; 2];
-			i2c::read_bytes(self.dev_address, RA_GYRO_ZOUT_H, 2, &mut buffer);
-			return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
+      let mut buffer = [0; 2];
+      i2c::read_bytes(self.dev_address, RA_GYRO_ZOUT_H, 2, &mut buffer);
+      return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
 
@@ -2723,7 +2723,7 @@ pub fn set_motion_detection_counter_decrement(&mut self, decrement: u8) -> Resul
    * @see MPU9250_USERCTRL_FIFO_EN_BIT
    */
 pub fn get_fifo_enabled(&mut self) -> Result<u8> {
-		i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT)
+    i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT)
 }
 
   /** Set FIFO enabled status.
@@ -2733,7 +2733,7 @@ pub fn get_fifo_enabled(&mut self) -> Result<u8> {
    * @see MPU9250_USERCTRL_FIFO_EN_BIT
    */
 pub fn set_fifo_enabled(&mut self, enabled: bool) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT, enabled as u8)
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_EN_BIT, enabled as u8)
 }
 
   /** Get I2C Master Mode enabled status.
@@ -2748,7 +2748,7 @@ pub fn set_fifo_enabled(&mut self, enabled: bool) -> Result<()> {
    * @see MPU9250_USERCTRL_I2C_MST_EN_BIT
    */
 pub fn get_i2c_master_mode_enabled(&mut self) -> Result<u8> {
-		i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT)
+    i2c::read_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT)
 }
 
   /** Set I2C Master Mode enabled status.
@@ -2758,7 +2758,7 @@ pub fn get_i2c_master_mode_enabled(&mut self) -> Result<u8> {
    * @see MPU9250_USERCTRL_I2C_MST_EN_BIT
    */
 pub fn set_i2c_master_mode_enabled(&mut self, enabled: bool) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT, enabled as u8)
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_EN_BIT, enabled as u8)
 }
 
   /** Switch from I2C to SPI mode (MPU-6000 only)
@@ -2766,7 +2766,7 @@ pub fn set_i2c_master_mode_enabled(&mut self, enabled: bool) -> Result<()> {
    * disabled primary I2C interface.
    */
 pub fn switch_spi_enabled(&mut self, enabled: bool) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_IF_DIS_BIT, enabled as u8)
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_IF_DIS_BIT, enabled as u8)
 }
 
   /** Reset the FIFO.
@@ -2776,7 +2776,7 @@ pub fn switch_spi_enabled(&mut self, enabled: bool) -> Result<()> {
    * @see MPU9250_USERCTRL_FIFO_RESET_BIT
    */
 pub fn reset_fifo(&mut self) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_RESET_BIT, 1)
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_FIFO_RESET_BIT, 1)
 }
 
   /** Reset the I2C Master.
@@ -2786,7 +2786,7 @@ pub fn reset_fifo(&mut self) -> Result<()> {
    * @see MPU9250_USERCTRL_I2C_MST_RESET_BIT
    */
 pub fn reset_i2c_master(&mut self) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_RESET_BIT, 1)
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_I2C_MST_RESET_BIT, 1)
 }
 
   /** Reset all sensor registers and signal paths.
@@ -2802,7 +2802,7 @@ pub fn reset_i2c_master(&mut self) -> Result<()> {
    * @see MPU9250_USERCTRL_SIG_COND_RESET_BIT
    */
 pub fn reset_sensors(&mut self) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_SIG_COND_RESET_BIT, 1)
+    i2c::write_bit(self.dev_address, RA_USER_CTRL, USERCTRL_SIG_COND_RESET_BIT, 1)
 }
 
   /** Trigger a full device reset.
@@ -2811,7 +2811,7 @@ pub fn reset_sensors(&mut self) -> Result<()> {
    * @see MPU9250_PWR1_DEVICE_RESET_BIT
    */
 pub fn reset(&mut self) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_DEVICE_RESET_BIT, 1)
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_DEVICE_RESET_BIT, 1)
 }
 
   /** Get sleep mode status.
@@ -2826,7 +2826,7 @@ pub fn reset(&mut self) -> Result<()> {
    * @see MPU9250_PWR1_SLEEP_BIT
    */
 pub fn get_sleep_enabled(&mut self) -> Result<u8> {
-		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT)
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT)
 }
 
   /** Set sleep mode status.
@@ -2836,7 +2836,7 @@ pub fn get_sleep_enabled(&mut self) -> Result<u8> {
    * @see MPU9250_PWR1_SLEEP_BIT
    */
 pub fn set_sleep_enabled(&mut self, enabled: bool) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled as u8)
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled as u8)
 }
 
   /** Get wake cycle enabled status.
@@ -2848,7 +2848,7 @@ pub fn set_sleep_enabled(&mut self, enabled: bool) -> Result<()> {
    * @see MPU9250_PWR1_CYCLE_BIT
    */
 pub fn get_wake_cycle_enabled(&mut self) -> Result<u8> {
-		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT)
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT)
 }
 
   /** Set wake cycle enabled status.
@@ -2858,7 +2858,7 @@ pub fn get_wake_cycle_enabled(&mut self) -> Result<u8> {
    * @see MPU9250_PWR1_CYCLE_BIT
    */
 pub fn set_wake_cycle_enabled(&mut self, enabled: bool) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT, enabled as u8)
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_CYCLE_BIT, enabled as u8)
 }
 
   /** Get temperature sensor enabled status.
@@ -2873,7 +2873,7 @@ pub fn set_wake_cycle_enabled(&mut self, enabled: bool) -> Result<()> {
    * @see MPU9250_PWR1_TEMP_DIS_BIT
    */
 pub fn get_temp_sensor_enabled(&mut self) -> Result<u8> {
-		i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT)
+    i2c::read_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT)
 }
 
   /** Set temperature sensor enabled status.
@@ -2887,7 +2887,7 @@ pub fn get_temp_sensor_enabled(&mut self) -> Result<u8> {
    * @see MPU9250_PWR1_TEMP_DIS_BIT
    */
 pub fn set_temp_sensor_enabled(&mut self, enabled: bool) -> Result<()> {
-		i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT, (!enabled) as u8)
+    i2c::write_bit(self.dev_address, RA_PWR_MGMT_1, PWR1_TEMP_DIS_BIT, (!enabled) as u8)
 }
 
   /** Get clock source setting.
@@ -2897,7 +2897,7 @@ pub fn set_temp_sensor_enabled(&mut self, enabled: bool) -> Result<()> {
    * @see MPU9250_PWR1_CLKSEL_LENGTH
    */
 pub fn get_clock_source(&mut self) -> Result<u8> {
-		i2c::read_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH)
+    i2c::read_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH)
 }
 
 /** Set clock source setting.
@@ -2931,7 +2931,7 @@ pub fn get_clock_source(&mut self) -> Result<u8> {
 * @see MPU9250_PWR1_CLKSEL_LENGTH
 */
 pub fn set_clock_source(&mut self, source: u8) -> Result<()> {
-		i2c::write_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, source)
+    i2c::write_bits(self.dev_address, RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, source)
 }
 
 // PWR_MGMT_2 register
@@ -3104,7 +3104,7 @@ pub fn set_standby_z_gyro_enabled(&self, enabled: u8) -> Result<()> {
 pub fn get_fifo_count(&self) -> Result<u16> {
     let mut buffer = [0; 2];
     i2c::read_bytes(self.dev_address, RA_FIFO_COUNTH, 2, &mut buffer);
-		Ok(((buffer[1] as u16) << 8) | buffer[0] as u16)
+    Ok(((buffer[1] as u16) << 8) | buffer[0] as u16)
 }
 
 // FIFO_R_W register
@@ -3384,10 +3384,10 @@ pub fn reset_dmp(&self) -> Result<()> {
 
 // BANK_SEL register
 
-pub fn set_memory_bank(&self, bank: u8, prefetch_enabled: u8, user_bank: u8) -> Result<()> {
+pub fn set_memory_bank(&self, bank: u8, prefetch_enabled: bool, user_bank: bool) -> Result<()> {
     let mut bank_value = bank & 0x1F;
-    if user_bank != 0 { bank_value |= 0x20; }
-    if prefetch_enabled != 0 { bank_value |= 0x40; }
+    if user_bank { bank_value |= 0x20; }
+    if prefetch_enabled { bank_value |= 0x40; }
     i2c::write_byte(self.dev_address, RA_BANK_SEL, bank_value)
 }
 
@@ -3405,6 +3405,83 @@ pub fn read_memory_byte(&self) -> Result<u8> {
 
 pub fn write_memory_byte(&self, data: u8) -> Result<()> {
     i2c::write_byte(self.dev_address, RA_MEM_R_W, data)
+}
+
+pub fn read_memory_block(&self, data: &mut [u8], data_size: u16, mut bank: u8, mut address: u8) -> Result<()> {
+    self.set_memory_bank(bank, false, false);
+    self.set_memory_start_address(address);
+    let mut chunk_size : u8 = 0;
+    let mut i : u16 = 0;
+    while i < data_size {
+        // determine correct chunk size according to bank position and data size
+        chunk_size = DMP_MEMORY_CHUNK_SIZE;
+
+        // make sure we don't go past the data size
+        if (i + chunk_size as u16 > data_size) {
+            chunk_size = (data_size - i) as u8; 
+        }  
+
+        // make sure this chunk doesn't go past the bank boundary (256 bytes)
+        // This ensures that wrapping_add will only wrap to exactly 0
+        if (chunk_size as u16 > 256 - address as u16) {
+            chunk_size = ((256 - address as u16) & 0xFF).try_into().unwrap();
+        }
+
+        // read the chunk of data as specified
+        i2c::read_bytes(self.dev_address, RA_MEM_R_W, chunk_size, &mut data[i as usize .. (i as usize + chunk_size as usize)])?;
+
+        // increase byte index by [chunk_size]
+        i += chunk_size as u16;
+
+        // automatically wraps to 0 at 256
+        address = address.wrapping_add(chunk_size);
+
+        // if we aren't done, update bank (if necessary) and address
+        if i < data_size {
+            if address == 0 {
+                bank += 1;
+            }
+            self.set_memory_bank(bank, false, false);
+            self.set_memory_start_address(address);
+        }
+    }
+    Ok(())
+}
+
+pub fn write_memory_block(&self, data: &[u8], data_size: u16, bank: u8, address: u8, verify: bool, use_prog_mem: bool) -> Result<()> {
+    Ok(())
+}
+
+pub fn write_prog_memory_block(&self, data: &[u8], data_size: u16, bank: u8, address: u8, verify: bool) -> Result<()> {
+    self.write_memory_block(data, data_size, bank, address, verify, true)
+}
+
+pub fn write_dmp_configuration_set(&self, data: &[u8], data_size: u16, use_prog_mem: bool) -> Result<()> {
+    Ok(())
+}
+
+pub fn write_prog_dmp_configuration_set(&self, data: &[u8], data_size: u16) -> Result<()> {
+    self.write_dmp_configuration_set(data, data_size, true)
+}
+
+// DMP_CFG_1 register
+
+pub fn get_dmp_config1(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_DMP_CFG_1)
+}
+
+pub fn set_dmp_config1(&self, config: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_DMP_CFG_1, config)
+}
+
+// DMP_CFG_2 register
+
+pub fn get_dmp_config2(&self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_DMP_CFG_2)
+}
+
+pub fn set_dmp_config2(&self, config: u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_DMP_CFG_2, config)
 }
 
 
