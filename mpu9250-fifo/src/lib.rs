@@ -37,6 +37,25 @@ mod tests {
     }
 
     #[test]
+    fn test_fifo_motion_6() {
+        let mut mpu9250 = MPU9250::new(0x68);
+        assert!(mpu9250.initialize().is_ok(), "Initialize failed");
+        mpu9250.set_fifo_enabled(false).expect("Failed to disable fifo");
+        mpu9250.reset_fifo().expect("Failed to reset fifo");
+        assert_eq!(mpu9250.get_fifo_count().expect("Failed to get FIFO count"), 0u16, "FIFO not empty after reset");
+        mpu9250.set_accel_fifo_enabled(true).expect("Failed to enabled accel for fifo");
+        mpu9250.set_x_gyro_fifo_enabled(true).expect("Failed to enable x gyro for fifo");
+        mpu9250.set_y_gyro_fifo_enabled(true).expect("Failed to enable x gyro for fifo");
+        mpu9250.set_z_gyro_fifo_enabled(true).expect("Failed to enable x gyro for fifo");
+        mpu9250.set_fifo_enabled(true).expect("Failed to enable fifo");
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let fifo_count = mpu9250.get_fifo_count().unwrap();
+        assert!(fifo_count > 0u16, "FIFO empty after start");
+        println!("FIFO Count: {}", fifo_count);
+        assert!(mpu9250.get_acceleration_x().is_ok(), "Read accelerometer failed")
+    }
+
+    #[test]
     fn test_read_accelerometer() {
         let mut mpu9250 = MPU9250::new(0x68);
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
