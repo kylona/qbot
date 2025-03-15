@@ -175,6 +175,8 @@ const VDDIO_LEVEL_VDD : u8 = 1;
 
 const CFG_EXT_SYNC_SET_BIT : u8 = 5;
 const CFG_EXT_SYNC_SET_LENGTH : u8 = 3;
+const CFG_FIFO_MODE_BIT : u8 = 5;
+const CFG_FIFO_MODE_LENGTH : u8 = 1;
 const CFG_DLPF_CFG_BIT : u8 = 2;
 const CFG_DLPF_CFG_LENGTH : u8 = 3;
 
@@ -607,6 +609,25 @@ impl MPU9250 {
    */
   pub fn set_dlpf_mode(&mut self, mode : u8) -> Result<()> {
     i2c::write_bits(self.dev_address, RA_CONFIG, CFG_DLPF_CFG_BIT, CFG_DLPF_CFG_LENGTH, mode)
+  }
+
+  /** Get first in first out buffer mode configuration.
+   * A 0 in this bit allows the buffer to overwrite old values when the fifo is full
+   * A 1 in this bit prevents writes to the buffer when it is full
+   * @see MPU9250_RA_CONFIG
+   * @param mode New mode configuration value
+   */
+  pub fn get_fifo_mode(&mut self) -> Result<u8> {
+    i2c::read_bits(self.dev_address, RA_CONFIG, CFG_FIFO_MODE_BIT, CFG_FIFO_MODE_LENGTH)
+  }
+
+  /** Set fifo mode configuration.
+   * @see get_fifo_mode()
+   * @see MPU9250_RA_CONFIG
+   * @param mode New mode configuration value
+   */
+  pub fn set_fifo_mode(&mut self, mode : u8) -> Result<()> {
+    i2c::write_bits(self.dev_address, RA_CONFIG, CFG_FIFO_MODE_BIT, CFG_FIFO_MODE_LENGTH, mode)
   }
 
   // GYRO_CONFIG register
