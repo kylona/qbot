@@ -175,7 +175,7 @@ const VDDIO_LEVEL_VDD : u8 = 1;
 
 const CFG_EXT_SYNC_SET_BIT : u8 = 5;
 const CFG_EXT_SYNC_SET_LENGTH : u8 = 3;
-const CFG_FIFO_MODE_BIT : u8 = 5;
+const CFG_FIFO_MODE_BIT : u8 = 6;
 const CFG_FIFO_MODE_LENGTH : u8 = 1;
 const CFG_DLPF_CFG_BIT : u8 = 2;
 const CFG_DLPF_CFG_LENGTH : u8 = 3;

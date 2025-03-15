@@ -55,7 +55,7 @@ mod tests {
         assert!(fifo_count > 0u16, "FIFO empty after start");
         println!("FIFO Count: {}", fifo_count);
         mpu9250.set_fifo_enabled(false).expect("Failed to disable fifo");
-        for _ in 0..100 {
+        for _ in 0..512 {
             let data = mpu9250.get_fifo_byte().unwrap();
             println!("FIFO DATA: {}", data);
             let fifo_count = mpu9250.get_fifo_count().unwrap();
