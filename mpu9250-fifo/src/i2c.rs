@@ -119,3 +119,9 @@ pub fn write_bit(dev_addr : u16, reg_addr : u8, bit_start : u8, data : u8) -> Re
     return write_bits(dev_addr, reg_addr, bit_start, 1, data)
 }
 
+pub fn read_block(dev_addr: u16, reg_addr : u8, data : &mut [u8]) -> Result<usize> {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH)?;
+    i2c.smbus_set_slave_address(dev_addr, false)?;
+    let num_bytes_read = i2c.smbus_read_block_data(reg_addr, data)?;
+    return Ok(num_bytes_read);
+}
