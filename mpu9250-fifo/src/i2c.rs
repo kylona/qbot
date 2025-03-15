@@ -105,8 +105,8 @@ pub fn read_bit(dev_addr : u16, reg_addr : u8, bit_start : u8) -> Result<u8> {
 
 pub fn write_bits(dev_addr : u16, reg_addr : u8, bit_start : u8, length : u8, mut data : u8) -> Result<()> {
     let mut b = read_byte(dev_addr, reg_addr)?;
-    println!("bit_start: {}", bit_start);
-    println!("length: {}", length);
+    debug!("bit_start: {}", bit_start);
+    debug!("length: {}", length);
     let mask : u16 = (((1 << length as u16)) - 1) << (bit_start + 1 - length);
     data <<= bit_start + 1 - length;
     data &= mask as u8;

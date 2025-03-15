@@ -3113,7 +3113,7 @@ pub fn set_standby_z_gyro_enabled(&self, enabled: u8) -> Result<()> {
 pub fn get_fifo_count(&self) -> Result<u16> {
     let mut buffer = [0; 2];
     i2c::read_bytes(self.dev_address, RA_FIFO_COUNTH, 2, &mut buffer)?;
-    Ok(((buffer[1] as u16) << 8) | buffer[0] as u16)
+    Ok(((buffer[0] as u16) << 8) | buffer[1] as u16)
 }
 
 // FIFO_R_W register
