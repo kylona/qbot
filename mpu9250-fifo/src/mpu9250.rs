@@ -3137,6 +3137,19 @@ pub fn get_fifo_count(&self) -> Result<u16> {
     Ok(((buffer[0] as u16) << 8) | buffer[1] as u16)
 }
 
+pub fn flush_fifo(&self) -> Result<()> {
+    let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
+    i2c::write_byte(self.dev_address, RA_FIFO_EN, 0x00)?; // Turn off loading data into fifo
+    let fifo_count = self.get_fifo_count()?;
+    println!("FIFO COUNT: {}", fifo_count);
+    for _ in 0..fifo_count {
+        self.get_fifo_byte()?;
+    }
+    let new_fifo_count = self.get_fifo_count()?;
+    println!("NEW FIFO COUNT: {}", new_fifo_count);
+    Ok(())
+}
+
 // FIFO_R_W register
 
 /** Get byte from FIFO buffer.
