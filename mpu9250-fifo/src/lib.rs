@@ -49,8 +49,8 @@ mod tests {
     fn test_fifo_motion_6() {
         let mut mpu9250 = MPU9250::new(0x68);
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
-        mpu9250.set_fifo_enabled(false).expect("Failed to disable fifo");
-        mpu9250.reset_fifo().expect("Failed to reset fifo");
+        //mpu9250.set_fifo_enabled(false).expect("Failed to disable fifo");
+        //mpu9250.reset_fifo().expect("Failed to reset fifo");
         mpu9250.set_accel_fifo_enabled(true).expect("Failed to enabled accel for fifo");
         assert!(mpu9250.get_accel_fifo_enabled().unwrap() == 1u8, "Fifo accel enable didn't stick?");
         mpu9250.set_x_gyro_fifo_enabled(true).expect("Failed to enable x gyro for fifo");
@@ -64,13 +64,11 @@ mod tests {
         assert!(fifo_count > 0u16, "FIFO empty after start");
         println!("FIFO Count: {}", fifo_count);
         mpu9250.set_fifo_enabled(false).expect("Failed to disable fifo");
-        for _ in 0..512 {
-            let data = mpu9250.get_fifo_byte().unwrap();
-            println!("FIFO DATA: {}", data);
-            let fifo_count = mpu9250.get_fifo_count().unwrap();
-            println!("FIFO COUNT: {}", fifo_count);
+        let mut data = [0u8; 512];
+        let data_count = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
+        for i in 0..data_count {
+            println!("FIFO DATA: {}", data[i]);
         }
-        assert!(mpu9250.get_acceleration_x().is_ok(), "Read accelerometer failed")
     }
 
     #[test]

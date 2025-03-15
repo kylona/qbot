@@ -3141,12 +3141,8 @@ pub fn flush_fifo(&self) -> Result<()> {
     let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
     i2c::write_byte(self.dev_address, RA_FIFO_EN, 0x00)?; // Turn off loading data into fifo
     let fifo_count = self.get_fifo_count()?;
-    println!("FIFO COUNT: {}", fifo_count);
-    for _ in 0..fifo_count {
-        self.get_fifo_byte()?;
-    }
-    let new_fifo_count = self.get_fifo_count()?;
-    println!("NEW FIFO COUNT: {}", new_fifo_count);
+    let mut data = [0u8; 512];
+    self.get_fifo_data(&mut data)?;
     Ok(())
 }
 
