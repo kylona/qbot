@@ -2,12 +2,10 @@
 
 // I2Cdev library collection - MPU9250 I2C device class
 // Based on InvenSense MPU-9250 register map document rev. 2.0, 5/19/2011 (RM-MPU-6000A-00)
-// 8/24/2011 by Jeff Rowberg <jeff@rowberg.net>
+// And on the C++ implementation by Jeff Rowberg <jeff@rowberg.net>
 // Ported to Rust by Kyle Storey <kyle@kylona.com>
-
-// NOTE: THIS IS ONLY A PARIAL RELEASE. THIS DEVICE CLASS IS CURRENTLY UNDERGOING ACTIVE
-// DEVELOPMENT AND IS STILL MISSING SOME IMPORTANT FEATURES. PLEASE KEEP THIS IN MIND IF
-// YOU DECIDE TO USE THIS PARTICULAR CODE FOR ANYTHING.
+// This includes a substantial portion of Rowberg's work so the original license is included here.
+// Other parts of the code base are licensed under GPL 2.0 as seen in LICENSE
 
 /* ============================================
 I2Cdev device library code is placed under the MIT license
@@ -448,11 +446,10 @@ impl MPU9250 {
    * the default internal clock source.
    */
   pub fn initialize(&mut self) -> Result<()> {
-    self.set_clock_source(CLOCK_PLL_XGYRO);
-    self.set_full_scale_gyro_range(GYRO_FS_250);
-    self.set_full_scale_accel_range(ACCEL_FS_2);
-    self.set_sleep_enabled(false);
-    
+    self.set_clock_source(CLOCK_PLL_XGYRO)?;
+    self.set_full_scale_gyro_range(GYRO_FS_250)?;
+    self.set_full_scale_accel_range(ACCEL_FS_2)?;
+    self.set_sleep_enabled(false)?;
     Ok(())
   }
 
@@ -476,7 +473,7 @@ impl MPU9250 {
    * @return I2C supply voltage level (0=VLOGIC, 1=VDD)
    */
   pub fn get_aux_vddio_level(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_YG_OFFS_TC, TC_PWR_MODE_BIT);
+    i2c::read_bit(self.dev_address, RA_YG_OFFS_TC, TC_PWR_MODE_BIT)
   }
 
   /** Set the auxiliary I2C supply voltage level.
@@ -486,7 +483,7 @@ impl MPU9250 {
    * @param level I2C supply voltage level (0=VLOGIC, 1=VDD)
    */
   pub fn set_aux_vddio_level(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_YG_OFFS_TC, TC_PWR_MODE_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_YG_OFFS_TC, TC_PWR_MODE_BIT, enabled as u8)
   }
 
   // SMPLRT_DIV register
@@ -513,7 +510,7 @@ impl MPU9250 {
    * @see MPU9250_RA_SMPLRT_DIV
    */
   pub fn get_rate(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_SMPLRT_DIV);
+    i2c::read_byte(self.dev_address, RA_SMPLRT_DIV)
   }
 
   /** Set gyroscope sample rate divider.
@@ -522,7 +519,7 @@ impl MPU9250 {
    * @see MPU9250_RA_SMPLRT_DIV
    */
   pub fn set_rate(&mut self, rate : u8) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_SMPLRT_DIV, rate);
+    i2c::write_byte(self.dev_address, RA_SMPLRT_DIV, rate)
   }
 
 
@@ -556,7 +553,7 @@ impl MPU9250 {
    * @return FSYNC configuration value
    */
   pub fn get_external_frame_sync(&mut self) -> Result<u8> {
-    return i2c::read_bits(self.dev_address, RA_CONFIG, CFG_EXT_SYNC_SET_BIT, CFG_EXT_SYNC_SET_LENGTH);
+    i2c::read_bits(self.dev_address, RA_CONFIG, CFG_EXT_SYNC_SET_BIT, CFG_EXT_SYNC_SET_LENGTH)
   }
 
   /** Set external FSYNC configuration.
@@ -565,7 +562,7 @@ impl MPU9250 {
    * @param sync New FSYNC configuration value
    */
   pub fn set_external_frame_sync(&mut self, sync : u8) -> Result<()> {
-    return i2c::write_bits(self.dev_address, RA_CONFIG, CFG_EXT_SYNC_SET_BIT, CFG_EXT_SYNC_SET_LENGTH, sync);
+    i2c::write_bits(self.dev_address, RA_CONFIG, CFG_EXT_SYNC_SET_BIT, CFG_EXT_SYNC_SET_LENGTH, sync)
   }
 
 
@@ -598,7 +595,7 @@ impl MPU9250 {
    * @see MPU9250_CFG_DLPF_CFG_LENGTH
    */
   pub fn get_dlpf_mode(&mut self) -> Result<u8> {
-    return i2c::read_bits(self.dev_address, RA_CONFIG, CFG_DLPF_CFG_BIT, CFG_DLPF_CFG_LENGTH);
+    i2c::read_bits(self.dev_address, RA_CONFIG, CFG_DLPF_CFG_BIT, CFG_DLPF_CFG_LENGTH)
   }
   /** Set digital low-pass filter configuration.
    * @param mode New DLFP configuration setting
@@ -609,7 +606,7 @@ impl MPU9250 {
    * @see MPU9250_CFG_DLPF_CFG_LENGTH
    */
   pub fn set_dlpf_mode(&mut self, mode : u8) -> Result<()> {
-    return i2c::write_bits(self.dev_address, RA_CONFIG, CFG_DLPF_CFG_BIT, CFG_DLPF_CFG_LENGTH, mode);
+    i2c::write_bits(self.dev_address, RA_CONFIG, CFG_DLPF_CFG_BIT, CFG_DLPF_CFG_LENGTH, mode)
   }
 
   // GYRO_CONFIG register
@@ -632,7 +629,7 @@ impl MPU9250 {
    * @see MPU9250_GCONFIG_FS_SEL_LENGTH
    */
   pub fn get_full_scale_gyro_range(&mut self) -> Result<u8> {
-    return i2c::read_bits(self.dev_address, RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH);
+    i2c::read_bits(self.dev_address, RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH)
   }
   /** Set full-scale gyroscope range.
    * @param range New full-scale gyroscope range value
@@ -643,7 +640,7 @@ impl MPU9250 {
    * @see MPU9250_GCONFIG_FS_SEL_LENGTH
    */
   pub fn set_full_scale_gyro_range(&mut self, range : u8) -> Result<()> {
-    return i2c::write_bits(self.dev_address, RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH, range);
+    i2c::write_bits(self.dev_address, RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH, range)
   }
 
 
@@ -654,14 +651,14 @@ impl MPU9250 {
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn get_accel_x_self_test(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_XA_ST_BIT);
+    i2c::read_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_XA_ST_BIT)
   }
   /** Get self-test enabled setting for accelerometer X axis.
    * @param enabled Self-test enabled value
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn set_accel_x_self_test(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_XA_ST_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_XA_ST_BIT, enabled as u8)
   }
 
   /** Get self-test enabled value for accelerometer Y axis.
@@ -669,28 +666,28 @@ impl MPU9250 {
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn get_accel_y_self_test(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_YA_ST_BIT);
+    i2c::read_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_YA_ST_BIT)
   }
   /** Get self-test enabled value for accelerometer Y axis.
    * @param enabled Self-test enabled value
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn set_accel_y_self_test(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_YA_ST_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_YA_ST_BIT, enabled as u8)
   }
   /** Get self-test enabled value for accelerometer Z axis.
    * @return Self-test enabled value
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn get_accel_z_self_test(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ZA_ST_BIT);
+    i2c::read_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ZA_ST_BIT)
   }
   /** Set self-test enabled value for accelerometer Z axis.
    * @param enabled Self-test enabled value
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn set_accel_z_self_test(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ZA_ST_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ZA_ST_BIT, enabled as u8)
   }
   /** Get full-scale accelerometer range.
    * The FS_SEL parameter allows setting the full-scale range of the accelerometer
@@ -710,14 +707,14 @@ impl MPU9250 {
    * @see MPU9250_ACONFIG_AFS_SEL_LENGTH
    */
   pub fn get_full_scale_accel_range(&mut self) -> Result<u8> {
-    return i2c::read_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_AFS_SEL_BIT, ACONFIG_AFS_SEL_LENGTH);
+    i2c::read_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_AFS_SEL_BIT, ACONFIG_AFS_SEL_LENGTH)
   }
   /** Set full-scale accelerometer range.
    * @param range New full-scale accelerometer range setting
    * @see getFullScaleAccelRange()
    */
   pub fn set_full_scale_accel_range(&mut self, range : u8) -> Result<()> {
-    return i2c::write_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_AFS_SEL_BIT, ACONFIG_AFS_SEL_LENGTH, range);
+    i2c::write_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_AFS_SEL_BIT, ACONFIG_AFS_SEL_LENGTH, range)
   }
   /** Get the high-pass filter configuration.
    * The DHPF is a filter module in the path leading to motion detectors (Free
@@ -755,7 +752,7 @@ impl MPU9250 {
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn get_dhpf_mode(&mut self) -> Result<u8> {
-    return i2c::read_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ACCEL_HPF_BIT, ACONFIG_ACCEL_HPF_LENGTH);
+    i2c::read_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ACCEL_HPF_BIT, ACONFIG_ACCEL_HPF_LENGTH)
   }
   /** Set the high-pass filter configuration.
    * @param bandwidth New high-pass filter configuration
@@ -764,7 +761,7 @@ impl MPU9250 {
    * @see MPU9250_RA_ACCEL_CONFIG
    */
   pub fn set_dhpf_mode(&mut self, mode : u8) -> Result<()> {
-    return i2c::write_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ACCEL_HPF_BIT, ACONFIG_ACCEL_HPF_LENGTH, mode);
+    i2c::write_bits(self.dev_address, RA_ACCEL_CONFIG, ACONFIG_ACCEL_HPF_BIT, ACONFIG_ACCEL_HPF_LENGTH, mode)
   }
 
   // FF_THR register
@@ -785,7 +782,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FF_THR
    */
   pub fn get_free_fall_detection_threshold(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_FF_THR);
+    i2c::read_byte(self.dev_address, RA_FF_THR)
   }
   /** Get free-fall event acceleration threshold.
    * @param threshold New free-fall acceleration threshold value (LSB = 2mg)
@@ -793,7 +790,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FF_THR
    */
   pub fn set_free_fall_detection_threshold(&mut self, threshold : u8) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_FF_THR, threshold);
+    i2c::write_byte(self.dev_address, RA_FF_THR, threshold)
   }
   
   // FF_DUR register
@@ -816,7 +813,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FF_DUR
    */
   pub fn get_free_fall_detection_duration(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_FF_DUR);
+    i2c::read_byte(self.dev_address, RA_FF_DUR)
   }
   /** Get free-fall event duration threshold.
    * @param duration New free-fall duration threshold value (LSB = 1ms)
@@ -824,7 +821,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FF_DUR
    */
   pub fn set_free_fall_detection_duration(&mut self, duration : u8) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_FF_DUR, duration);
+    i2c::write_byte(self.dev_address, RA_FF_DUR, duration)
   }
   
 
@@ -850,7 +847,7 @@ impl MPU9250 {
    * @see MPU9250_RA_MOT_THR
    */
   pub fn get_motion_detection_threshold(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_MOT_THR);
+    i2c::read_byte(self.dev_address, RA_MOT_THR)
   }
   /** Set free-fall event acceleration threshold.
    * @param threshold New motion detection acceleration threshold value (LSB = 2mg)
@@ -858,7 +855,7 @@ impl MPU9250 {
    * @see MPU9250_RA_MOT_THR
    */
   pub fn set_motion_detection_threshold(&mut self, threshold : u8) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_MOT_THR, threshold);
+    i2c::write_byte(self.dev_address, RA_MOT_THR, threshold)
   }
   
   // MOT_DUR register
@@ -879,7 +876,7 @@ impl MPU9250 {
    * @see MPU9250_RA_MOT_DUR
    */
   pub fn get_motion_detection_duration(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_MOT_DUR);
+    i2c::read_byte(self.dev_address, RA_MOT_DUR)
   }
   /** Set motion detection event duration threshold.
    * @param duration New motion detection duration threshold value (LSB = 1ms)
@@ -887,7 +884,7 @@ impl MPU9250 {
    * @see MPU9250_RA_MOT_DUR
    */
   pub fn set_motion_detection_duration(&mut self, duration : u8) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_MOT_DUR, duration);
+    i2c::write_byte(self.dev_address, RA_MOT_DUR, duration)
   }
 
   // ZRMOT_THR register
@@ -918,7 +915,7 @@ impl MPU9250 {
    * @see MPU9250_RA_ZRMOT_THR
    */
   pub fn get_zero_motion_detection_threshold(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_ZRMOT_THR);
+    i2c::read_byte(self.dev_address, RA_ZRMOT_THR)
   }
   /** Set zero motion detection event acceleration threshold.
    * @param threshold New zero motion detection acceleration threshold value (LSB = 2mg)
@@ -926,7 +923,7 @@ impl MPU9250 {
    * @see MPU9250_RA_ZRMOT_THR
    */
   pub fn set_zero_motion_detection_threshold(&mut self, threshold : u8) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_ZRMOT_THR, threshold);
+    i2c::write_byte(self.dev_address, RA_ZRMOT_THR, threshold)
   }
   
   // ZRMOT_DUR register
@@ -948,7 +945,7 @@ impl MPU9250 {
    * @see MPU9250_RA_ZRMOT_DUR
    */
   pub fn get_zero_motion_detection_duration(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_ZRMOT_DUR);
+    i2c::read_byte(self.dev_address, RA_ZRMOT_DUR)
   }
   /** Set zero motion detection event duration threshold.
    * @param duration New zero motion detection duration threshold value (LSB = 1ms)
@@ -956,7 +953,7 @@ impl MPU9250 {
    * @see MPU9250_RA_ZRMOT_DUR
    */
   pub fn set_zero_motion_detection_duration(&mut self, duration : u8) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_ZRMOT_DUR, duration);
+    i2c::write_byte(self.dev_address, RA_ZRMOT_DUR, duration)
   }
 
 
@@ -969,7 +966,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_temp_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, TEMP_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, TEMP_FIFO_EN_BIT)
   }
   /** Set temperature FIFO enabled value.
    * @param enabled New temperature FIFO enabled value
@@ -977,7 +974,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_temp_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, TEMP_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, TEMP_FIFO_EN_BIT, enabled as u8)
   }
   /** Get gyroscope X-axis FIFO enabled value.
    * When set to 1, this bit enables GYRO_XOUT_H and GYRO_XOUT_L (Registers 67 and
@@ -986,7 +983,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_x_gyro_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, XG_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, XG_FIFO_EN_BIT)
   }
   /** Set gyroscope X-axis FIFO enabled value.
    * @param enabled New gyroscope X-axis FIFO enabled value
@@ -994,7 +991,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_x_gyro_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, XG_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, XG_FIFO_EN_BIT, enabled as u8)
   }
   /** Get gyroscope Y-axis FIFO enabled value.
    * When set to 1, this bit enables GYRO_YOUT_H and GYRO_YOUT_L (Registers 69 and
@@ -1003,7 +1000,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_y_gyro_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, YG_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, YG_FIFO_EN_BIT)
   }
   /** Set gyroscope Y-axis FIFO enabled value.
    * @param enabled New gyroscope Y-axis FIFO enabled value
@@ -1011,7 +1008,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_y_gyro_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, YG_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, YG_FIFO_EN_BIT, enabled as u8)
   }
   /** Get gyroscope Z-axis FIFO enabled value.
    * When set to 1, this bit enables GYRO_ZOUT_H and GYRO_ZOUT_L (Registers 71 and
@@ -1020,7 +1017,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_z_gyro_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, ZG_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, ZG_FIFO_EN_BIT)
   }
   /** Set gyroscope Z-axis FIFO enabled value.
    * @param enabled New gyroscope Z-axis FIFO enabled value
@@ -1028,7 +1025,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_z_gyro_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, ZG_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, ZG_FIFO_EN_BIT, enabled as u8)
   }
   /** Get accelerometer FIFO enabled value.
    * When set to 1, this bit enables ACCEL_XOUT_H, ACCEL_XOUT_L, ACCEL_YOUT_H,
@@ -1038,7 +1035,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_accel_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, ACCEL_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, ACCEL_FIFO_EN_BIT)
   }
   /** Set accelerometer FIFO enabled value.
    * @param enabled New accelerometer FIFO enabled value
@@ -1046,7 +1043,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_accel_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, ACCEL_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, ACCEL_FIFO_EN_BIT, enabled as u8)
   }
   /** Get Slave 2 FIFO enabled value.
    * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
@@ -1055,7 +1052,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_slave2_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV2_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV2_FIFO_EN_BIT)
   }
   /** Set Slave 2 FIFO enabled value.
    * @param enabled New Slave 2 FIFO enabled value
@@ -1063,7 +1060,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_slave2_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV2_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV2_FIFO_EN_BIT, enabled as u8)
   }
   /** Get Slave 1 FIFO enabled value.
    * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
@@ -1072,7 +1069,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_slave1_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV1_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV1_FIFO_EN_BIT)
   }
   /** Set Slave 1 FIFO enabled value.
    * @param enabled New Slave 1 FIFO enabled value
@@ -1080,7 +1077,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_slave1_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV1_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV1_FIFO_EN_BIT, enabled as u8)
   }
   /** Get Slave 0 FIFO enabled value.
    * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
@@ -1089,7 +1086,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn get_slave0_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV0_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_FIFO_EN, SLV0_FIFO_EN_BIT)
   }
   /** Set Slave 0 FIFO enabled value.
    * @param enabled New Slave 0 FIFO enabled value
@@ -1097,7 +1094,7 @@ impl MPU9250 {
    * @see MPU9250_RA_FIFO_EN
    */
   pub fn set_slave0_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV0_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_FIFO_EN, SLV0_FIFO_EN_BIT, enabled as u8)
   }
 
   // I2C_MST_CTRL register
@@ -1118,7 +1115,7 @@ impl MPU9250 {
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn get_multi_master_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, MULT_MST_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, MULT_MST_EN_BIT)
   }
   /** Set multi-master enabled value.
    * @param enabled New multi-master enabled value
@@ -1126,7 +1123,7 @@ impl MPU9250 {
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn set_multi_master_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, MULT_MST_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, MULT_MST_EN_BIT, enabled as u8)
   }
   /** Get wait-for-external-sensor-data enabled value.
    * When the WAIT_FOR_ES bit is set to 1, the Data Ready interrupt will be
@@ -1140,7 +1137,7 @@ impl MPU9250 {
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn get_wait_for_external_sensor_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, WAIT_FOR_ES_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, WAIT_FOR_ES_BIT)
   }
   /** Set wait-for-external-sensor-data enabled value.
    * @param enabled New wait-for-external-sensor-data enabled value
@@ -1148,7 +1145,7 @@ impl MPU9250 {
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn set_wait_for_external_sensor_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, WAIT_FOR_ES_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, WAIT_FOR_ES_BIT, enabled as u8)
   }
   /** Get Slave 3 FIFO enabled value.
    * When set to 1, this bit enables EXT_SENS_DATA registers (Registers 73 to 96)
@@ -1157,7 +1154,7 @@ impl MPU9250 {
    * @see MPU9250_RA_MST_CTRL
    */
   pub fn get_slave3_fifo_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, SLV_3_FIFO_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, SLV_3_FIFO_EN_BIT)
   }
   /** Set Slave 3 FIFO enabled value.
    * @param enabled New Slave 3 FIFO enabled value
@@ -1165,7 +1162,7 @@ impl MPU9250 {
    * @see MPU9250_RA_MST_CTRL
    */
   pub fn set_slave3_fifo_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, SLV_3_FIFO_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, SLV_3_FIFO_EN_BIT, enabled as u8)
   }
   /** Get slave read/write transition enabled value.
    * The I2C_MST_P_NSR bit configures the I2C Master's transition from one slave
@@ -1178,7 +1175,7 @@ impl MPU9250 {
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn get_slave_read_write_transition_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_P_NSR_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_P_NSR_BIT)
   }
   /** Set slave read/write transition enabled value.
    * @param enabled New slave read/write transition enabled value
@@ -1186,7 +1183,7 @@ impl MPU9250 {
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn set_slave_read_write_transition_enabled(&mut self, enabled : bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_P_NSR_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_P_NSR_BIT, enabled as u8)
   }
 
   /** Get I2C master clock speed.
@@ -1219,14 +1216,14 @@ impl MPU9250 {
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn get_master_clock_speed(&mut self) -> Result<u8> {
-    return i2c::read_bits(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_CLK_BIT, I2C_MST_CLK_LENGTH);
+    i2c::read_bits(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_CLK_BIT, I2C_MST_CLK_LENGTH)
   }
   /** Set I2C master clock speed.
    * @reparam speed Current I2C master clock speed
    * @see MPU9250_RA_I2C_MST_CTRL
    */
   pub fn set_master_clock_speed(&mut self, speed : u8) -> Result<()> {
-    return i2c::write_bits(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_CLK_BIT, I2C_MST_CLK_LENGTH, speed);
+    i2c::write_bits(self.dev_address, RA_I2C_MST_CTRL, I2C_MST_CLK_BIT, I2C_MST_CLK_LENGTH, speed)
   }
   
   // I2C_SLV* registers (Slave 0-3)
@@ -1276,7 +1273,7 @@ impl MPU9250 {
     if (num > 3) {
       return Err(anyhow!("Slave number must be less than 4"));
     }
-    return i2c::read_byte(self.dev_address, RA_I2C_SLV0_ADDR + num*3);
+    i2c::read_byte(self.dev_address, RA_I2C_SLV0_ADDR + num*3)
   }
   /** Set the I2C address of the specified slave (0-3).
    * @param num Slave number (0-3)
@@ -1288,7 +1285,7 @@ impl MPU9250 {
     if (num > 3) {
       return Err(anyhow!("Slave number must be less than 4"));
     }
-    return i2c::write_byte(self.dev_address, RA_I2C_SLV0_ADDR + num*3, address);
+    i2c::write_byte(self.dev_address, RA_I2C_SLV0_ADDR + num*3, address)
   }
   /** Get the active internal register for the specified slave (0-3).
    * Read/write operations for this slave will be done to whatever internal
@@ -1305,7 +1302,7 @@ impl MPU9250 {
     if (num > 3) {
       return Err(anyhow!("Slave number must be less than 4"));
     }
-    return i2c::read_byte(self.dev_address, RA_I2C_SLV0_REG + num*3);
+    i2c::read_byte(self.dev_address, RA_I2C_SLV0_REG + num*3)
   }
   /** Set the active internal register for the specified slave (0-3).
    * @param num Slave number (0-3)
@@ -1317,7 +1314,7 @@ impl MPU9250 {
     if (num > 3) {
       return Err(anyhow!("Slave number must be less than 4"));
     }
-    return i2c::write_byte(self.dev_address, RA_I2C_SLV0_REG + num*3, register);
+    i2c::write_byte(self.dev_address, RA_I2C_SLV0_REG + num*3, register)
   }
 
   /** Get whether the specified slave (0-3) is enabled.
@@ -1627,7 +1624,7 @@ pub fn get_slave4_input_byte(&self) -> Result<u8> {
 /// @return FSYNC interrupt status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_passthrough_status(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_PASS_THROUGH_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_PASS_THROUGH_BIT)
 }
 
 /// Get Slave 4 transaction done status.
@@ -1638,7 +1635,7 @@ pub fn get_passthrough_status(&mut self) -> Result<u8> {
 /// @return Slave 4 transaction done status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_slave4_is_done(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV4_DONE_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV4_DONE_BIT)
 }
 
 /// Get master arbitration lost status.
@@ -1648,7 +1645,7 @@ pub fn get_slave4_is_done(&mut self) -> Result<u8> {
 /// @return Master arbitration lost status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_lost_arbitration(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_LOST_ARB_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_LOST_ARB_BIT)
 }
 
 /// Get Slave 4 NACK status.
@@ -1658,7 +1655,7 @@ pub fn get_lost_arbitration(&mut self) -> Result<u8> {
 /// @return Slave 4 NACK interrupt status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_slave4_nack(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV4_NACK_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV4_NACK_BIT)
 }
 
 /// Get Slave 3 NACK status.
@@ -1668,7 +1665,7 @@ pub fn get_slave4_nack(&mut self) -> Result<u8> {
 /// @return Slave 3 NACK interrupt status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_slave3_nack(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV3_NACK_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV3_NACK_BIT)
 }
 
 /// Get Slave 2 NACK status.
@@ -1678,7 +1675,7 @@ pub fn get_slave3_nack(&mut self) -> Result<u8> {
 /// @return Slave 2 NACK interrupt status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_slave2_nack(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV2_NACK_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV2_NACK_BIT)
 }
 
 /// Get Slave 1 NACK status.
@@ -1688,7 +1685,7 @@ pub fn get_slave2_nack(&mut self) -> Result<u8> {
 /// @return Slave 1 NACK interrupt status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_slave1_nack(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV1_NACK_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV1_NACK_BIT)
 }
 
 /// Get Slave 0 NACK status.
@@ -1698,7 +1695,7 @@ pub fn get_slave1_nack(&mut self) -> Result<u8> {
 /// @return Slave 0 NACK interrupt status
 /// @see MPU9250_RA_I2C_MST_STATUS
 pub fn get_slave0_nack(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV0_NACK_BIT);
+    i2c::read_bit(self.dev_address, RA_I2C_MST_STATUS, MST_I2C_SLV0_NACK_BIT)
 }
 
 // INT_PIN_CFG register
@@ -1718,7 +1715,7 @@ pub fn get_interrupt_mode(&mut self) -> Result<u8> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_INT_LEVEL_BIT
 pub fn set_interrupt_mode(&mut self, mode: u8) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_LEVEL_BIT, mode);
+    i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_LEVEL_BIT, mode)
 }
 
 /// Get interrupt drive mode.
@@ -1727,7 +1724,7 @@ pub fn set_interrupt_mode(&mut self, mode: u8) -> Result<()> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_INT_OPEN_BIT
 pub fn get_interrupt_drive(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_OPEN_BIT);
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_OPEN_BIT)
 }
 
 /// Set interrupt drive mode.
@@ -1736,7 +1733,7 @@ pub fn get_interrupt_drive(&mut self) -> Result<u8> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_INT_OPEN_BIT
 pub fn set_interrupt_drive(&mut self, drive: bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_OPEN_BIT, drive as u8);
+    i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_OPEN_BIT, drive as u8)
 }
 
 /// Get interrupt latch mode.
@@ -1745,7 +1742,7 @@ pub fn set_interrupt_drive(&mut self, drive: bool) -> Result<()> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_LATCH_INT_EN_BIT
 pub fn get_interrupt_latch(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT)
 }
 
 /// Set interrupt latch mode.
@@ -1754,7 +1751,7 @@ pub fn get_interrupt_latch(&mut self) -> Result<u8> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_LATCH_INT_EN_BIT
 pub fn set_interrupt_latch(&mut self, latch: u8) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT, latch);
+    i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT, latch)
 }
 
 /// Get interrupt latch clear mode.
@@ -1763,7 +1760,7 @@ pub fn set_interrupt_latch(&mut self, latch: u8) -> Result<()> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_INT_RD_CLEAR_BIT
 pub fn get_interrupt_latch_clear(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_RD_CLEAR_BIT);
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_INT_RD_CLEAR_BIT)
 }
 
 /// Set interrupt latch clear mode.
@@ -1781,7 +1778,7 @@ pub fn set_interrupt_latch_clear(&mut self, clear: bool) -> Result<()> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_FSYNC_INT_LEVEL_BIT
 pub fn get_fsync_interrupt_level(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_LEVEL_BIT);
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_LEVEL_BIT)
 }
 
 /// Set FSYNC interrupt logic level mode.
@@ -1799,7 +1796,7 @@ pub fn set_fsync_interrupt_level(&mut self, level: u8) -> Result<()> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_FSYNC_INT_EN_BIT
 pub fn get_fsync_interrupt_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT)
 }
 
 /// Set FSYNC pin interrupt enabled setting.
@@ -1822,7 +1819,7 @@ pub fn set_fsync_interrupt_enabled(&mut self, enabled: bool) -> Result<()> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_I2C_BYPASS_EN_BIT
 pub fn get_i2c_bypass_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_I2C_BYPASS_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_I2C_BYPASS_EN_BIT)
 }
 
 /// Set I2C bypass enabled status.
@@ -1837,7 +1834,7 @@ pub fn get_i2c_bypass_enabled(&mut self) -> Result<u8> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_I2C_BYPASS_EN_BIT
 pub fn set_i2c_bypass_enabled(&mut self, enabled: bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_I2C_BYPASS_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_I2C_BYPASS_EN_BIT, enabled as u8)
 }
 
 /// Get reference clock output enabled status.
@@ -1849,7 +1846,7 @@ pub fn set_i2c_bypass_enabled(&mut self, enabled: bool) -> Result<()> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_CLKOUT_EN_BIT
 pub fn get_clock_output_enabled(&mut self) -> Result<u8> {
-    return i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_CLKOUT_EN_BIT);
+    i2c::read_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_CLKOUT_EN_BIT)
 }
 
 /// Set reference clock output enabled status.
@@ -1862,7 +1859,7 @@ pub fn get_clock_output_enabled(&mut self) -> Result<u8> {
 /// @see MPU9250_RA_INT_PIN_CFG
 /// @see MPU9250_INTCFG_CLKOUT_EN_BIT
 pub fn set_clock_output_enabled(&mut self, enabled: bool) -> Result<()> {
-    return i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_CLKOUT_EN_BIT, enabled as u8);
+    i2c::write_bit(self.dev_address, RA_INT_PIN_CFG, INTCFG_CLKOUT_EN_BIT, enabled as u8)
 }
 
 /// Get full interrupt enabled status.
@@ -1872,7 +1869,7 @@ pub fn set_clock_output_enabled(&mut self, enabled: bool) -> Result<()> {
 /// @see MPU9250_RA_INT_ENABLE
 /// @see MPU9250_INTERRUPT_FF_BIT
 pub fn get_int_enabled(&mut self) -> Result<u8> {
-    return i2c::read_byte(self.dev_address, RA_INT_ENABLE);
+    i2c::read_byte(self.dev_address, RA_INT_ENABLE)
 }
 
 /// Set full interrupt enabled status.
@@ -1883,7 +1880,7 @@ pub fn get_int_enabled(&mut self) -> Result<u8> {
 /// @see MPU9250_RA_INT_ENABLE
 /// @see MPU9250_INTERRUPT_FF_BIT
 pub fn set_int_enabled(&mut self, enabled: bool) -> Result<()> {
-    return i2c::write_byte(self.dev_address, RA_INT_ENABLE, enabled as u8);
+    i2c::write_byte(self.dev_address, RA_INT_ENABLE, enabled as u8)
 }
 
 /// Get Free Fall interrupt enabled status.
@@ -2085,7 +2082,7 @@ pub fn get_motion_9(&mut self) -> Result<(AccelerometerData, GyroscopeData, Magn
   std::thread::sleep(std::time::Duration::from_millis(10));
   //read mag
   let mut buffer = [0; 6];
-  i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer);
+  i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer)?;
   let magnetometer_data = MagnetometerData {
       x : ((buffer[1] as i16) << 8) | buffer[0] as i16,
       y : ((buffer[3] as i16) << 8) | buffer[2] as i16,
@@ -2103,7 +2100,7 @@ pub fn get_motion_9(&mut self) -> Result<(AccelerometerData, GyroscopeData, Magn
    */
 pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
   let mut buffer = [0; 14];
-  i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 14, &mut buffer);
+  i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 14, &mut buffer)?;
   let accelerometer_data = AccelerometerData {
       x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
       y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
@@ -2157,7 +2154,7 @@ pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
    */
 pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
   let mut buffer = [0; 6];
-  i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 6, &mut buffer);
+  i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 6, &mut buffer)?;
   Ok(AccelerometerData {
       x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
       y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
@@ -2172,7 +2169,7 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    */
   pub fn get_acceleration_x(&mut self) -> Result<i16> {
       let mut buffer = [0; 2];
-      i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 2, &mut buffer);
+      i2c::read_bytes(self.dev_address, RA_ACCEL_XOUT_H, 2, &mut buffer)?;
       return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
@@ -2183,7 +2180,7 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    */
   pub fn get_acceleration_y(&mut self) -> Result<i16> {
       let mut buffer = [0; 2];
-      i2c::read_bytes(self.dev_address, RA_ACCEL_YOUT_H, 2, &mut buffer);
+      i2c::read_bytes(self.dev_address, RA_ACCEL_YOUT_H, 2, &mut buffer)?;
       return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
@@ -2194,7 +2191,7 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    */
   pub fn get_acceleration_z(&mut self) -> Result<i16> {
       let mut buffer = [0; 2];
-      i2c::read_bytes(self.dev_address, RA_ACCEL_ZOUT_H, 2, &mut buffer);
+      i2c::read_bytes(self.dev_address, RA_ACCEL_ZOUT_H, 2, &mut buffer)?;
       return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
@@ -2206,7 +2203,7 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    */
   pub fn get_temperature(&mut self) -> Result<i16> {
       let mut buffer = [0; 2];
-      i2c::read_bytes(self.dev_address, RA_TEMP_OUT_H, 2, &mut buffer);
+      i2c::read_bytes(self.dev_address, RA_TEMP_OUT_H, 2, &mut buffer)?;
       return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
@@ -2244,7 +2241,7 @@ pub fn get_acceleration(&mut self) -> Result<AccelerometerData> {
    */
 pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
   let mut buffer = [0; 6];
-  i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 6, &mut buffer);
+  i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 6, &mut buffer)?;
   Ok(GyroscopeData {
       x : ((buffer[0] as i16) << 8) | buffer[1] as i16,
       y : ((buffer[2] as i16) << 8) | buffer[3] as i16,
@@ -2258,7 +2255,7 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
    */
   pub fn get_rotation_x(&mut self) -> Result<i16> {
       let mut buffer = [0; 2];
-      i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 2, &mut buffer);
+      i2c::read_bytes(self.dev_address, RA_GYRO_XOUT_H, 2, &mut buffer)?;
       return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
   /** Get Y-axis gyroscope reading.
@@ -2268,7 +2265,7 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
    */
   pub fn get_rotation_y(&mut self) -> Result<i16> {
       let mut buffer = [0; 2];
-      i2c::read_bytes(self.dev_address, RA_GYRO_YOUT_H, 2, &mut buffer);
+      i2c::read_bytes(self.dev_address, RA_GYRO_YOUT_H, 2, &mut buffer)?;
       return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
   /** Get Z-axis gyroscope reading.
@@ -2278,7 +2275,7 @@ pub fn get_rotation(&mut self) -> Result<GyroscopeData> {
    */
   pub fn get_rotation_z(&mut self) -> Result<i16> {
       let mut buffer = [0; 2];
-      i2c::read_bytes(self.dev_address, RA_GYRO_ZOUT_H, 2, &mut buffer);
+      i2c::read_bytes(self.dev_address, RA_GYRO_ZOUT_H, 2, &mut buffer)?;
       return Ok(((buffer[0] as i16) << 8) | buffer[1] as i16);
   }
 
@@ -3115,7 +3112,7 @@ pub fn set_standby_z_gyro_enabled(&self, enabled: u8) -> Result<()> {
  */
 pub fn get_fifo_count(&self) -> Result<u16> {
     let mut buffer = [0; 2];
-    i2c::read_bytes(self.dev_address, RA_FIFO_COUNTH, 2, &mut buffer);
+    i2c::read_bytes(self.dev_address, RA_FIFO_COUNTH, 2, &mut buffer)?;
     Ok(((buffer[1] as u16) << 8) | buffer[0] as u16)
 }
 
@@ -3258,7 +3255,7 @@ pub fn set_z_fine_gain(&self, gain: u8) -> Result<()> {
 
 pub fn get_x_accel_offset(&self) -> Result<i16> {
     let mut buffer = [0; 2];
-    i2c::read_bytes(self.dev_address, RA_XA_OFFS_H, 2, &mut buffer);
+    i2c::read_bytes(self.dev_address, RA_XA_OFFS_H, 2, &mut buffer)?;
     Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
 }
 
@@ -3270,7 +3267,7 @@ pub fn set_x_accel_offset(&self, offset: u16) -> Result<()> {
 
 pub fn get_y_accel_offset(&self) -> Result<i16> {
     let mut buffer = [0; 2];
-    i2c::read_bytes(self.dev_address, RA_YA_OFFS_H, 2, &mut buffer);
+    i2c::read_bytes(self.dev_address, RA_YA_OFFS_H, 2, &mut buffer)?;
     Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
 }
 
@@ -3282,7 +3279,7 @@ pub fn set_y_accel_offset(&self, offset: u16) -> Result<()> {
 
 pub fn get_z_accel_offset(&self) -> Result<i16> {
     let mut buffer = [0; 2];
-    i2c::read_bytes(self.dev_address, RA_ZA_OFFS_H, 2, &mut buffer);
+    i2c::read_bytes(self.dev_address, RA_ZA_OFFS_H, 2, &mut buffer)?;
     Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
 }
 
@@ -3294,7 +3291,7 @@ pub fn set_z_accel_offset(&self, offset: u16) -> Result<()> {
 
 pub fn get_x_gyro_offset_user(&self) -> Result<i16> {
     let mut buffer = [0; 2];
-    i2c::read_bytes(self.dev_address, RA_XG_OFFS_USRH, 2, &mut buffer);
+    i2c::read_bytes(self.dev_address, RA_XG_OFFS_USRH, 2, &mut buffer)?;
     Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
 }
 
@@ -3306,7 +3303,7 @@ pub fn set_x_gyro_offset_user(&self, offset: u16) -> Result<()> {
 
 pub fn get_y_gyro_offset_user(&self) -> Result<i16> {
     let mut buffer = [0; 2];
-    i2c::read_bytes(self.dev_address, RA_YG_OFFS_USRH, 2, &mut buffer);
+    i2c::read_bytes(self.dev_address, RA_YG_OFFS_USRH, 2, &mut buffer)?;
     Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
 }
 
@@ -3318,7 +3315,7 @@ pub fn set_y_gyro_offset_user(&self, offset: u16) -> Result<()> {
 
 pub fn get_z_gyro_offset_user(&self) -> Result<i16> {
     let mut buffer = [0; 2];
-    i2c::read_bytes(self.dev_address, RA_ZG_OFFS_USRH, 2, &mut buffer);
+    i2c::read_bytes(self.dev_address, RA_ZG_OFFS_USRH, 2, &mut buffer)?;
     Ok(((buffer[0] as i16) << 8) | (buffer[1] as i16))
 }
 
@@ -3555,7 +3552,7 @@ pub fn write_dmp_configuration_set(&self, data: &[u8], data_size: u16) -> Result
                 //setIntZeroMotionEnabled(true);
                 //setIntFIFOBufferOverflowEnabled(true);
                 //setIntDMPEnabled(true);
-                i2c::write_byte(self.dev_address, RA_INT_ENABLE, 0x32);  // simgle operation
+                i2c::write_byte(self.dev_address, RA_INT_ENABLE, 0x32)?;  // simgle operation
             },
             _ => {
                 return Err(anyhow!("Unknown Special Command"));

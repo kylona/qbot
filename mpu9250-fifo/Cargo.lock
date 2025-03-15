@@ -21,15 +21,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
-name = "grove_imu"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "i2c-linux",
- "log",
-]
-
-[[package]]
 name = "i2c-linux"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -62,6 +53,15 @@ name = "log"
 version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30bde2b3dc3671ae49d8e2e9f044c7c005836e7a023ee57cffa25ab82764bb9e"
+
+[[package]]
+name = "mpu9250-fifo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "i2c-linux",
+ "log",
+]
 
 [[package]]
 name = "resize-slice"
