@@ -37,6 +37,15 @@ mod tests {
     }
 
     #[test]
+    fn test_fifo_flush() {
+        let mut mpu9250 = MPU9250::new(0x68);
+        assert!(mpu9250.initialize().is_ok(), "Initialize failed");
+        mpu9250.flush_fifo().expect("Flush fifo failed");
+        let fifo_count = mpu9250.get_fifo_count().expect("Get fifo count failed");
+        assert_eq!(fifo_count, 0, "FIFO not empty after flush");
+    }
+
+    #[test]
     fn test_fifo_motion_6() {
         let mut mpu9250 = MPU9250::new(0x68);
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
