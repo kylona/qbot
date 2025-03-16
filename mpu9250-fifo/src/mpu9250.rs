@@ -34,6 +34,12 @@ THE SOFTWARE.
 use crate::i2c;
 use anyhow::Result;
 use anyhow::anyhow;
+use i2c_linux::I2c;
+use i2c_linux::Message;
+use i2c_linux::ReadFlags;
+use i2c_linux::WriteFlags;
+
+const I2C_BUS_PATH : &str = "/dev/i2c-1";
 
 pub mod mpu9150 {
 
@@ -189,13 +195,13 @@ const EXT_SYNC_ACCEL_XOUT_L : u8 = 0x5;
 const EXT_SYNC_ACCEL_YOUT_L : u8 = 0x6;
 const EXT_SYNC_ACCEL_ZOUT_L : u8 = 0x7;
 
-const DLPF_BW_256 : u8 = 0x00;
-const DLPF_BW_188 : u8 = 0x01;
-const DLPF_BW_98 : u8 = 0x02;
-const DLPF_BW_42 : u8 = 0x03;
-const DLPF_BW_20 : u8 = 0x04;
-const DLPF_BW_10 : u8 = 0x05;
-const DLPF_BW_5 : u8 = 0x06;
+pub const DLPF_BW_256 : u8 = 0x00;
+pub const DLPF_BW_188 : u8 = 0x01;
+pub const DLPF_BW_98 : u8 = 0x02;
+pub const DLPF_BW_42 : u8 = 0x03;
+pub const DLPF_BW_20 : u8 = 0x04;
+pub const DLPF_BW_10 : u8 = 0x05;
+pub const DLPF_BW_5 : u8 = 0x06;
 
 const GCONFIG_FS_SEL_BIT : u8 = 4;
 const GCONFIG_FS_SEL_LENGTH : u8 = 2;
@@ -435,11 +441,15 @@ pub struct MagnetometerData {
 */
 pub struct MPU9250 {
     pub dev_address : u16,
+    pub i2c : I2c<std::fs::File>,
 }
 impl MPU9250 {
   pub fn new(dev_address : u16) -> Self {
+    let mut i2c = I2c::from_path(I2C_BUS_PATH).expect("Failed to open i2c bus");
+    i2c.smbus_set_slave_address(dev_address, false).expect("Failed to set i2c slave address");
     Self {
         dev_address: dev_address,
+        i2c: i2c,
     }
   }
 
@@ -3154,7 +3164,7 @@ pub fn get_fifo_count(&self) -> Result<u16> {
     Ok(((buffer[0] as u16) << 8) | buffer[1] as u16)
 }
 
-pub fn flush_fifo(&self) -> Result<()> {
+pub fn flush_fifo(&mut self) -> Result<()> {
     let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
     self.set_fifo_enabled_flags(0x0)?;
     let mut data = [0u8; 512];
@@ -3162,16 +3172,21 @@ pub fn flush_fifo(&self) -> Result<()> {
     Ok(())
 }
 
-pub fn get_fifo_data(&self, data: &mut [u8]) -> Result<usize> {
+pub fn get_fifo_data(&mut self, data: &mut [u8]) -> Result<usize> {
     let mut fifo_count = self.get_fifo_count()?;
-    let num_blocks = ((fifo_count as usize)/I2C_BLOCK_SIZE);
-    for i in 0..num_blocks {
-        i2c::read_block(self.dev_address, RA_FIFO_R_W, &mut data[(i*I2C_BLOCK_SIZE)..((i+1)*I2C_BLOCK_SIZE)])?;
-    }
-    let block_read_index = (num_blocks*I2C_BLOCK_SIZE);
-    i2c::multi_read_byte(self.dev_address, RA_FIFO_R_W, &mut data[block_read_index..(fifo_count as usize)]);
-    let mut fifo_count = self.get_fifo_count()?;
-    println!("FINAL FIFO COUNT: {}", fifo_count);
+    let mut messages = [
+        Message::Write {
+            address: self.dev_address,
+            data: &[RA_FIFO_R_W],
+            flags: WriteFlags::empty(),
+        },
+        Message::Read {
+            address: self.dev_address,
+            data: &mut data[0..fifo_count as usize],
+            flags: ReadFlags::empty(),
+        },
+    ];
+    self.i2c.i2c_transfer(&mut messages);
     Ok(fifo_count as usize)
 }
 
@@ -3188,7 +3203,7 @@ pub fn parse_fifo_data(
     let mut gyro_index : usize = 0;
     const PARSABLE_FLAGS : u8 = 0b01111000;
     if (fifo_enable_flags & PARSABLE_FLAGS) == 0 {
-        return Ok(data_count) //return that nothing was parsed
+        return Err(anyhow!("No parsible data"))
     }
     let mut accel_x = 0;
     let mut accel_y = 0;
@@ -3236,7 +3251,7 @@ pub fn parse_fifo_data(
            index += 2;
         }
         if ((fifo_enable_flags & ((0x1 << XG_FIFO_EN_BIT) | (0x1 << YG_FIFO_EN_BIT) | (0x1 << ZG_FIFO_EN_BIT))) != 0) {
-           gyro_data[accel_index] = GyroscopeData {
+           gyro_data[gyro_index] = GyroscopeData {
              x: gyro_x,
              y: gyro_y,
              z: gyro_z,
