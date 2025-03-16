@@ -983,6 +983,20 @@ impl MPU9250 {
 
   // FIFO_EN register
   
+  /** Get all the fifo enabled flags.
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn get_fifo_enabled_flags(&mut self) -> Result<u8> {
+    i2c::read_byte(self.dev_address, RA_FIFO_EN)
+  }
+
+  /** Set all the fifo enabled flags.
+   * @see MPU9250_RA_FIFO_EN
+   */
+  pub fn set_fifo_enabled_flags(&mut self, flags : u8) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_FIFO_EN, flags)
+  }
+
   /** Get temperature FIFO enabled value.
    * When set to 1, this bit enables TEMP_OUT_H and TEMP_OUT_L (Registers 65 and
    * 66) to be written into the FIFO buffer.
@@ -3168,24 +3182,34 @@ pub fn parse_fifo_data(
     accel_data: &mut[AccelerometerData],
     gyro_data: &mut[GyroscopeData],
     data_count : usize,
-    fifo_enable : u8,
+    fifo_enable_flags : u8,
 ) -> Result<usize> {
     let mut index : usize = 0;
     let mut accel_index : usize = 0;
     let mut gyro_index : usize = 0;
+    const parsable_flags : u8 = 0b01111000;
+    if (fifo_enable_flags & parsable_flags) == 0 {
+        return Ok(data_count) //return that nothing was parsed
+    }
+    let mut accel_x = 0;
+    let mut accel_y = 0;
+    let mut accel_z = 0;
+    let mut gyro_x = 0;
+    let mut gyro_y = 0;
+    let mut gyro_z = 0;
     while index < data_count {
         println!("INDEX: {}", index);
-        println!("FIFO EN: {}", fifo_enable);
-        if ((fifo_enable & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
+        println!("FIFO EN: {}", fifo_enable_flags);
+        if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
            println!("PARSE ACCEL");
            if data_count - index < 6 {
                 return Ok(data_count-index);
            }
-           let accel_x = (((data[index] as i16) << 8) | data[index+1] as i16);
+           accel_x = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
-           let accel_y = (((data[index] as i16) << 8) | data[index+1] as i16);
+           accel_y = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
-           let accel_z = (((data[index] as i16) << 8) | data[index+1] as i16);
+           accel_z = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
            accel_data[accel_index] = AccelerometerData {
              x: accel_x,
@@ -3193,6 +3217,35 @@ pub fn parse_fifo_data(
              z: accel_z,
            };
            accel_index += 1;
+        }
+        if ((fifo_enable_flags & (0x1 << XG_FIFO_EN_BIT)) != 0) {
+           if data_count - index < 2 {
+                return Ok(data_count-index);
+           }
+           gyro_x = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+        }
+        if ((fifo_enable_flags & (0x1 << YG_FIFO_EN_BIT)) != 0) {
+           if data_count - index < 2 {
+                return Ok(data_count-index);
+           }
+           gyro_y = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+        }
+        if ((fifo_enable_flags & (0x1 << ZG_FIFO_EN_BIT)) != 0) {
+           if data_count - index < 2 {
+                return Ok(data_count-index);
+           }
+           gyro_z = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+        }
+        if ((fifo_enable_flags & ((0x1 << XG_FIFO_EN_BIT) | (0x1 << YG_FIFO_EN_BIT) | (0x1 << ZG_FIFO_EN_BIT))) != 0) {
+           gyro_data[accel_index] = GyroscopeData {
+             x: gyro_x,
+             y: gyro_y,
+             z: gyro_z,
+           };
+           gyro_index += 1;
         }
     }
     Ok(0)
