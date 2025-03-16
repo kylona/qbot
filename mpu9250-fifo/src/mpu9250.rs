@@ -49,7 +49,7 @@ pub mod mpu9150 {
     pub const RA_MAG_ZOUT_H        : u8 = 0x08;
 
 }
-
+const I2C_BLOCK_SIZE    : usize = 32; // number of bytes one i2c block can transfer
 const ADDRESS_AD0_LOW    : u16 = 0x68; // address pin low (GND), default for InvenSense evaluation board
 const ADDRESS_AD0_HIGH   : u16 = 0x69; // address pin high (VCC)
 const DEFAULT_ADDRESS    : u16 = ADDRESS_AD0_LOW;
@@ -407,16 +407,19 @@ const DMP_MEMORY_CHUNK_SIZE : u8 = 16;
 
 
 // ACCEL_*OUT_* registers
+#[derive(Debug, Copy, Clone)]
 pub struct AccelerometerData {
   pub x: i16,
   pub y: i16,
   pub z: i16,
 }
+#[derive(Debug, Copy, Clone)]
 pub struct GyroscopeData {
   pub x: i16,
   pub y: i16,
   pub z: i16,
 }
+#[derive(Debug, Copy, Clone)]
 pub struct MagnetometerData {
   pub x: i16,
   pub y: i16,
@@ -3140,21 +3143,59 @@ pub fn get_fifo_count(&self) -> Result<u16> {
 pub fn flush_fifo(&self) -> Result<()> {
     let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
     i2c::write_byte(self.dev_address, RA_FIFO_EN, 0x00)?; // Turn off loading data into fifo
-    let fifo_count = self.get_fifo_count()?;
     let mut data = [0u8; 512];
     self.get_fifo_data(&mut data)?;
     Ok(())
 }
 
 pub fn get_fifo_data(&self, data: &mut [u8]) -> Result<usize> {
-    let fifo_count = self.get_fifo_count()?;
+    let mut fifo_count = self.get_fifo_count()?;
     println!("FIFO COUNT: {}", fifo_count);
-    for _ in 0..fifo_count {
-        i2c::read_block(self.dev_address, RA_FIFO_R_W, data)?;
+    let num_blocks = ((fifo_count as usize)/I2C_BLOCK_SIZE);
+    for i in 0..num_blocks {
+        i2c::read_block(self.dev_address, RA_FIFO_R_W, &mut data[(i*I2C_BLOCK_SIZE)..((i+1)*I2C_BLOCK_SIZE)])?;
     }
+    //read last partial block
+    i2c::read_block(self.dev_address, RA_FIFO_R_W, &mut data[(num_blocks*I2C_BLOCK_SIZE)..fifo_count as usize])?;
     let new_fifo_count = self.get_fifo_count()?;
-    println!("NEW FIFO COUNT: {}", new_fifo_count);
+    println!("FINAL FIFO COUNT: {}", new_fifo_count);
     Ok(fifo_count as usize)
+}
+
+pub fn parse_fifo_data(
+    &self,
+    data: &[u8],
+    accel_data: &mut[AccelerometerData],
+    gyro_data: &mut[GyroscopeData],
+    data_count : usize,
+    fifo_enable : u8,
+) -> Result<usize> {
+    let mut index : usize = 0;
+    let mut accel_index : usize = 0;
+    let mut gyro_index : usize = 0;
+    while index < data_count {
+        println!("INDEX: {}", index);
+        println!("FIFO EN: {}", fifo_enable);
+        if ((fifo_enable & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
+           println!("PARSE ACCEL");
+           if data_count - index < 6 {
+                return Ok(data_count-index);
+           }
+           let accel_x = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+           let accel_y = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+           let accel_z = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+           accel_data[accel_index] = AccelerometerData {
+             x: accel_x,
+             y: accel_y,
+             z: accel_z,
+           };
+           accel_index += 1;
+        }
+    }
+    Ok(0)
 }
 
 // FIFO_R_W register
