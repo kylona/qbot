@@ -993,7 +993,7 @@ impl MPU9250 {
   /** Set all the fifo enabled flags.
    * @see MPU9250_RA_FIFO_EN
    */
-  pub fn set_fifo_enabled_flags(&mut self, flags : u8) -> Result<()> {
+  pub fn set_fifo_enabled_flags(&self, flags : u8) -> Result<()> {
     i2c::write_byte(self.dev_address, RA_FIFO_EN, flags)
   }
 
@@ -3156,7 +3156,7 @@ pub fn get_fifo_count(&self) -> Result<u16> {
 
 pub fn flush_fifo(&self) -> Result<()> {
     let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
-    i2c::write_byte(self.dev_address, RA_FIFO_EN, 0x00)?; // Turn off loading data into fifo
+    self.set_fifo_enabled_flags(0x0)?;
     let mut data = [0u8; 512];
     self.get_fifo_data(&mut data)?;
     Ok(())
@@ -3164,15 +3164,14 @@ pub fn flush_fifo(&self) -> Result<()> {
 
 pub fn get_fifo_data(&self, data: &mut [u8]) -> Result<usize> {
     let mut fifo_count = self.get_fifo_count()?;
-    println!("FIFO COUNT: {}", fifo_count);
     let num_blocks = ((fifo_count as usize)/I2C_BLOCK_SIZE);
     for i in 0..num_blocks {
         i2c::read_block(self.dev_address, RA_FIFO_R_W, &mut data[(i*I2C_BLOCK_SIZE)..((i+1)*I2C_BLOCK_SIZE)])?;
     }
-    //read last partial block
-    i2c::read_block(self.dev_address, RA_FIFO_R_W, &mut data[(num_blocks*I2C_BLOCK_SIZE)..fifo_count as usize])?;
-    let new_fifo_count = self.get_fifo_count()?;
-    println!("FINAL FIFO COUNT: {}", new_fifo_count);
+    let block_read_index = (num_blocks*I2C_BLOCK_SIZE);
+    i2c::multi_read_byte(self.dev_address, RA_FIFO_R_W, &mut data[block_read_index..(fifo_count as usize)]);
+    let mut fifo_count = self.get_fifo_count()?;
+    println!("FINAL FIFO COUNT: {}", fifo_count);
     Ok(fifo_count as usize)
 }
 
@@ -3187,8 +3186,8 @@ pub fn parse_fifo_data(
     let mut index : usize = 0;
     let mut accel_index : usize = 0;
     let mut gyro_index : usize = 0;
-    const parsable_flags : u8 = 0b01111000;
-    if (fifo_enable_flags & parsable_flags) == 0 {
+    const PARSABLE_FLAGS : u8 = 0b01111000;
+    if (fifo_enable_flags & PARSABLE_FLAGS) == 0 {
         return Ok(data_count) //return that nothing was parsed
     }
     let mut accel_x = 0;
@@ -3198,10 +3197,7 @@ pub fn parse_fifo_data(
     let mut gyro_y = 0;
     let mut gyro_z = 0;
     while index < data_count {
-        println!("INDEX: {}", index);
-        println!("FIFO EN: {}", fifo_enable_flags);
         if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
-           println!("PARSE ACCEL");
            if data_count - index < 6 {
                 return Ok(data_count-index);
            }

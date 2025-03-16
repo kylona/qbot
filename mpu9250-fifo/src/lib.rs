@@ -62,11 +62,13 @@ mod tests {
         mpu9250.set_fifo_enabled(true).expect("Failed to enable fifo");
         mpu9250.flush_fifo().expect("Flush fifo failed");
         let fifo_enabled_flags : u8 = 0b01111000;
-        mpu9250.set_fifo_enabled_flags(fifo_enabled_flags);
-        mpu9250.set_fifo_enabled_flags(0x0);
-        let data_count = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
-        let remaining_data_count = mpu9250.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, data_count, fifo_enabled_flags).expect("Parse data failed");
-        println!("DATA COUNT: {}", data_count);
+        mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
+        let data_count_1 = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
+        let data_count_2 = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
+        mpu9250.set_fifo_enabled_flags(0x0).expect("Reseting fifo enable flags failed");
+        let remaining_data_count = mpu9250.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, data_count_2, fifo_enabled_flags).expect("Parse data failed");
+        println!("DATA COUNT 1: {}", data_count_1);
+        println!("DATA COUNT 2: {}", data_count_2);
         println!("FIFO DATA: {:?}", data);
         println!("PARSED ACCEL DATA: {:?}", accel_data);
         println!("PARSED GYRO DATA: {:?}", gyro_data);
