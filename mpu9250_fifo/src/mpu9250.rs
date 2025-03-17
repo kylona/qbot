@@ -32,12 +32,15 @@ THE SOFTWARE.
 */
 
 use crate::i2c;
+use crate::calibrate;
 use anyhow::Result;
 use anyhow::anyhow;
 use i2c_linux::I2c;
 use i2c_linux::Message;
 use i2c_linux::ReadFlags;
 use i2c_linux::WriteFlags;
+use std::path::Path;
+use std::fs::File;
 
 pub mod mpu9150 {
 
@@ -430,6 +433,12 @@ pub struct MagnetometerData {
   pub z: i16,
 }
 
+struct MPU9250CalibrationData {
+    pub accel_offset : AccelerometerData,
+    pub gyro_offset : GyroscopeData,
+    pub mag_offset : MagnetometerData,
+}
+
 
 /** Specific address constructor.
 * @param address I2C address
@@ -450,6 +459,10 @@ impl MPU9250 {
   pub fn new(dev_address : u16, i2c_bus_path : &str, calibration_file_path : &str) -> Self {
     let mut i2c = I2c::from_path(i2c_bus_path).expect("Failed to open i2c bus");
     i2c.smbus_set_slave_address(dev_address, false).expect("Failed to set i2c slave address");
+    if (Path::new(calibration_file_path).exists()) {
+
+    }
+
     Self {
         dev_address: dev_address,
         i2c: i2c,
@@ -476,6 +489,7 @@ impl MPU9250 {
    * Store the results in self.calibration_file_path.
    */
   pub fn calibrate(&mut self) -> Result<()> {
+    calibrate::calibrate_gyro(self)?;
     Ok(())
   }
 
