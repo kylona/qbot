@@ -39,8 +39,6 @@ use i2c_linux::Message;
 use i2c_linux::ReadFlags;
 use i2c_linux::WriteFlags;
 
-const I2C_BUS_PATH : &str = "/dev/i2c-1";
-
 pub mod mpu9150 {
 
     //Magnetometer Registers
@@ -442,14 +440,20 @@ pub struct MagnetometerData {
 pub struct MPU9250 {
     pub dev_address : u16,
     pub i2c : I2c<std::fs::File>,
+    pub calibration_file_path : String,
 }
 impl MPU9250 {
-  pub fn new(dev_address : u16) -> Self {
-    let mut i2c = I2c::from_path(I2C_BUS_PATH).expect("Failed to open i2c bus");
+
+  pub fn default() -> Self {
+    Self::new(0x68, "/dev/i2c-1", "mpu9250.calib")
+  }
+  pub fn new(dev_address : u16, i2c_bus_path : &str, calibration_file_path : &str) -> Self {
+    let mut i2c = I2c::from_path(i2c_bus_path).expect("Failed to open i2c bus");
     i2c.smbus_set_slave_address(dev_address, false).expect("Failed to set i2c slave address");
     Self {
         dev_address: dev_address,
         i2c: i2c,
+        calibration_file_path : String::from(calibration_file_path),
     }
   }
 
@@ -465,6 +469,13 @@ impl MPU9250 {
     self.set_full_scale_gyro_range(GYRO_FS_250)?;
     self.set_full_scale_accel_range(ACCEL_FS_2)?;
     self.set_sleep_enabled(false)?;
+    Ok(())
+  }
+
+  /** Collect data and calculate offset and gain corrections.
+   * Store the results in self.calibration_file_path.
+   */
+  pub fn calibrate(&mut self) -> Result<()> {
     Ok(())
   }
 

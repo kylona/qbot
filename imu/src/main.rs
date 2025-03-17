@@ -1,47 +1,30 @@
-//! Poll the MPU9250 at ~100Hz.
-#[macro_use]
-extern crate clap;
-use clap::{App, Arg};
-extern crate mpu9250_dmp;
-use mpu9250_dmp::Mpu9250;
-use std::thread;
-use std::time::Duration;
+extern crate mpu9250_fifo;
+use mpu9250_fifo::MPU9250;
+use ahrs::{Ahrs, Madgwick};
+use nalgebra::Vector3;
+use std::f64;
 
-pub fn main() {
-    let matches = App::new("MPU-9250 Sample Scanner")
-        .arg(
-            Arg::with_name("bus")
-                .short("b")
-                .long("bus")
-                .value_name("BUS")
-                .help("The i2c bus for the MPU-9250.")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("addr")
-                .short("a")
-                .long("addr")
-                .value_name("ADDR")
-                .help("The i2c addr for the MPU-9250.")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("whoami")
-                .short("w")
-                .long("whoami")
-                .value_name("WHOAMI")
-                .help("The WHOAMI register value for the MPU-9250.")
-                .takes_value(true),
-        )
-        .get_matches();
-    let i2c_bus = value_t!(matches, "bus", i32).unwrap_or(1);
-    let i2c_addr = value_t!(matches, "addr", u16).ok();
-    let whoami = value_t!(matches, "whoami", u8).ok();
+fn main() {
+    // Initialize filter with default values
+    let mut ahrs = Madgwick::default();
 
-    let mut mpu =
-        Mpu9250::new(i2c_bus, i2c_addr, whoami, None).expect("Could not connect to MPU-9250");
-    loop {
-        println!("{:#?}", mpu.read_sample().unwrap());
-        thread::sleep(Duration::from_millis(10));
-    }
+    let mut mpu9250 = MPU9250::new(0x68);
+    let (accel_data, gyro_data, mag_data) = mpu9250.get_motion_9().expect("Could not connect to mpu9250");
+    // Obtain sensor values from a source
+    let gyroscope = Vector3::new(gyro_data.x, gyro_data.y, gyro_data.z);
+    let accelerometer = Vector3::new(accel_data.x, accel_data.y, accel_data.z);
+    let magnetometer = Vector3::new(mag_data.x, mag_data.y, mag_data.z);
+
+    // Run inputs through AHRS filter (gyroscope must be radians/s)
+    let quat = ahrs
+        .update(
+            &(gyroscope * (f64::consts::PI / 180.0)),
+            &accelerometer,
+            &magnetometer,
+        )
+        .unwrap();
+    let (roll, pitch, yaw) = quat.euler_angles();
+
+    // Do something with the updated state quaternion
+    println!("pitch={}, roll={}, yaw={}", pitch, roll, yaw);
 }

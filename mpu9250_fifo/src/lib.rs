@@ -13,20 +13,20 @@ mod tests {
 
     #[test]
     fn test_get_device_id() {
-        let mpu9250 = MPU9250::new(0x68);
+        let mpu9250 = MPU9250::default();
         assert_eq!(mpu9250.get_device_id().unwrap(), 0x71, "Device Id should be 0x71")
     }
 
     #[test]
     fn test_get_motion_6() {
-        let mut mpu9250 = MPU9250::new(0x68);
+        let mut mpu9250 = MPU9250::default();
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         assert!(mpu9250.get_motion_6().is_ok(), "Get motion 6 failed")
     }
 
     #[test]
     fn test_get_motion_9() {
-        let mut mpu9250 = MPU9250::new(0x68);
+        let mut mpu9250 = MPU9250::default();
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         for _ in 0..100 {
             let (accel_data, gyro_data, mag_data) = mpu9250.get_motion_9().unwrap();
@@ -41,7 +41,7 @@ mod tests {
 
     #[test]
     fn test_fifo_flush() {
-        let mut mpu9250 = MPU9250::new(0x68);
+        let mut mpu9250 = MPU9250::default();
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         mpu9250.flush_fifo().expect("Flush fifo failed");
         let fifo_count = mpu9250.get_fifo_count().expect("Get fifo count failed");
@@ -50,22 +50,21 @@ mod tests {
 
     #[test]
     fn test_fifo_motion_6() {
-        let mut mpu9250 = MPU9250::new(0x68);
+        let mut mpu9250 = MPU9250::default();
         let mut data = [0u8; 512];
         let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
         let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
 
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         mpu9250.set_rate(0).expect("Set rate failed");
-        mpu9250.set_dlpf_mode(mpu9250::DLPF_BW_5).expect("Set digital low pass filter mode failed");
+        mpu9250.set_dlpf_mode(mpu9250::DLPF_BW_188).expect("Set digital low pass filter mode failed");
         let rate = mpu9250.get_rate().unwrap();
         println!("RATE: {}", rate);
         mpu9250.set_fifo_enabled(true).expect("Failed to enable fifo");
         mpu9250.flush_fifo().expect("Flush fifo failed");
         mpu9250.set_fifo_mode(1u8).expect("Set fifo mode failed");
         let fifo_enabled_flags : u8 = 0b01111000;
-        //let fifo_enabled_flags : u8 = 0b00001000;
-        loop {
+        for _ in 0..100 {
             mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
             std::thread::sleep(std::time::Duration::from_millis(10));
             mpu9250.set_fifo_enabled_flags(0x0).expect("Reseting fifo enable flags failed");
@@ -81,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_read_accelerometer() {
-        let mut mpu9250 = MPU9250::new(0x68);
+        let mut mpu9250 = MPU9250::default();
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         assert!(mpu9250.get_acceleration_x().is_ok(), "Read accelerometer failed")
     }
@@ -92,8 +91,15 @@ mod tests {
     }
 
     #[test]
+    fn test_calibrate() {
+        let mut mpu9250 = MPU9250::default();
+        assert!(mpu9250.initialize().is_ok(), "Initialize failed");
+        assert!(mpu9250.calibrate().is_ok(), "Calibrate accelerometer failed")
+    }
+
+    #[test]
     fn test_initialize() {
-        let mut mpu9250 = MPU9250::new(0x68);
+        let mut mpu9250 = MPU9250::default();
         assert!(mpu9250.initialize().is_ok(), "Initialize failed")
     }
 }

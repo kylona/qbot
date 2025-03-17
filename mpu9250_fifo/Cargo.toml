@@ -1,5 +1,5 @@
 [package]
-name = "mpu9250-fifo"
+name = "mpu9250_fifo"
 version = "0.1.0"
 edition = "2021"
 
