@@ -432,11 +432,31 @@ pub struct MagnetometerData {
   pub y: i16,
   pub z: i16,
 }
+// ACCEL_*OUT_* registers
+#[derive(Debug, Copy, Clone)]
+pub struct AccelerometerMeasurement {
+  pub x: f32,
+  pub y: f32,
+  pub z: f32,
+}
+#[derive(Debug, Copy, Clone)]
+pub struct GyroscopeMeasurement {
+  pub x: f32,
+  pub y: f32,
+  pub z: f32,
+}
+#[derive(Debug, Copy, Clone)]
+pub struct MagnetometerMeasurement {
+  pub x: f32,
+  pub y: f32,
+  pub z: f32,
+}
 
 struct MPU9250CalibrationData {
     pub accel_offset : AccelerometerData,
     pub gyro_offset : GyroscopeData,
     pub mag_offset : MagnetometerData,
+    pub mag_scale : MagnetometerMeasurement,
 }
 
 
