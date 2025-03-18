@@ -74,7 +74,7 @@ pub fn calibrate_accelerometer(mpu9250 : &mut mpu9250::MPU9250) -> Result<mpu925
     Ok(accel_offset)
 }
 
-pub fn calibrate_magnetometer(mpu9250 : &mut mpu9250::MPU9250) -> Result<mpu9250::MagnetometerData, mpu9250::MagnetometerMeasurement> {
+pub fn calibrate_magnetometer(mpu9250 : &mut mpu9250::MPU9250) -> Result<(mpu9250::MagnetometerData, mpu9250::MagnetometerMeasurement)> {
     println!("Calibrating Magnetometer: Rotate the MPU9250 so each axis faces north at least once.");
     wait(3);
     println!("Calibrating . . .");

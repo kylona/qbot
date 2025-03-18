@@ -9,6 +9,8 @@ edition = "2021"
 anyhow = "1.0.97"
 i2c-linux = "0.1.2"
 log = "0.4.26"
+serde = {version = "1.0.219", features = ["derive"]}
+serde_json = "1.0.140"
 
 [features]
 alternate_address = []
