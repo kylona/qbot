@@ -489,7 +489,8 @@ impl MPU9250 {
    * Store the results in self.calibration_file_path.
    */
   pub fn calibrate(&mut self) -> Result<()> {
-    calibrate::calibrate_gyro(self)?;
+    calibrate::calibrate_gyroscope(self)?;
+    calibrate::calibrate_accelerometer(self)?;
     Ok(())
   }
 
