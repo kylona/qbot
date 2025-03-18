@@ -491,6 +491,7 @@ impl MPU9250 {
   pub fn calibrate(&mut self) -> Result<()> {
     calibrate::calibrate_gyroscope(self)?;
     calibrate::calibrate_accelerometer(self)?;
+    calibrate::calibrate_magnetometer(self)?;
     Ok(())
   }
 
@@ -2148,23 +2149,9 @@ pub fn get_int_data_ready_status(&mut self) -> Result<u8> {
 pub fn get_motion_9(&mut self) -> Result<(AccelerometerData, GyroscopeData, MagnetometerData)> {
   //get accel and gyro
   let (accelerometer_data, gyroscope_data) = self.get_motion_6()?;
-  // This must be repeated for each pass through read to the peripheral device 
-  // This does not seem to be documented in the data sheet
-  self.set_i2c_bypass_enabled(true);
-  std::thread::sleep(std::time::Duration::from_millis(10));
-  self.set_magnetometer_enabled(true);
-  std::thread::sleep(std::time::Duration::from_millis(10));
-  //read mag
-  let mut buffer = [0; 6];
-  i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer)?;
-  let magnetometer_data = MagnetometerData {
-      x : ((buffer[1] as i16) << 8) | buffer[0] as i16,
-      y : ((buffer[3] as i16) << 8) | buffer[2] as i16,
-      z : ((buffer[5] as i16) << 8) | buffer[4] as i16,
-  };
+  let magnetometer_data = self.get_magnetometer_data()?;
   Ok((accelerometer_data, gyroscope_data, magnetometer_data))
 }
-
 
   /** Get raw 6-axis motion sensor readings (accel/gyro).
    * Retrieves all currently available motion sensor values.
@@ -2189,6 +2176,22 @@ pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
   
 }
 
+pub fn get_magnetometer_data(&mut self) -> Result<MagnetometerData> {
+    // This must be repeated for each pass through read to the peripheral device 
+    // This does not seem to be documented in the data sheet
+    self.set_i2c_bypass_enabled(true);
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    self.set_magnetometer_enabled(true);
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    //read mag
+    let mut buffer = [0; 6];
+    i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer)?;
+    Ok(MagnetometerData {
+        x : ((buffer[1] as i16) << 8) | buffer[0] as i16,
+        y : ((buffer[3] as i16) << 8) | buffer[2] as i16,
+        z : ((buffer[5] as i16) << 8) | buffer[4] as i16,
+    })
+}
 
   /** Get 3-axis accelerometer readings.
    * These registers store the most recent accelerometer measurements.

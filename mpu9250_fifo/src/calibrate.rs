@@ -73,3 +73,61 @@ pub fn calibrate_accelerometer(mpu9250 : &mut mpu9250::MPU9250) -> Result<mpu925
     println!("ACCEL OFFSET IS: {:?}", accel_offset);
     Ok(accel_offset)
 }
+
+pub fn calibrate_magnetometer(mpu9250 : &mut mpu9250::MPU9250) -> Result<mpu9250::MagnetometerData> {
+    println!("Calibrating Magnetometer: Rotate the MPU9250 so each axis faces north at least once.");
+    println!("Calibrating . . .");
+
+    let mag_data = mpu9250.get_magnetometer_data()?;
+    // 80% of the norm of the 3d vector
+    let target_scale : i16 = (f64::sqrt(((mag_data.x as i64).pow(2) + (mag_data.y as i64).pow(2) + (mag_data.z as i64).pow(2)) as f64)*0.8).round() as i16;
+
+    let mut mag_min_x : i16 = 0;
+    let mut mag_max_x : i16 = 0;
+    let mut mag_min_y : i16 = 0;
+    let mut mag_max_y : i16 = 0;
+    let mut mag_min_z : i16 = 0;
+    let mut mag_max_z : i16 = 0;
+    let mut x_done = false;
+    let mut y_done = false;
+    let mut z_done = false;
+    for _ in 0..MAG_NUM_SAMPLES {
+        let mag_data = mpu9250.get_magnetometer_data()?;
+        mag_min_x = std::cmp::min(mag_data.x, mag_min_x);
+        mag_max_x = std::cmp::max(mag_data.x, mag_max_x);
+        mag_min_y = std::cmp::min(mag_data.y, mag_min_y);
+        mag_max_y = std::cmp::max(mag_data.y, mag_max_y);
+        mag_min_z = std::cmp::min(mag_data.z, mag_min_z);
+        mag_max_z = std::cmp::max(mag_data.z, mag_max_z);
+        if !x_done && (mag_min_x < -target_scale) && (mag_max_x > target_scale) {
+            x_done = true;
+            println!("X Axis Calibrated")
+        }
+        if !y_done && (mag_min_y < -target_scale) && (mag_max_y > target_scale) {
+            y_done = true;
+            println!("Y Axis Calibrated")
+        }
+        if !z_done && (mag_min_z < -target_scale) && (mag_max_z > target_scale) {
+            z_done = true;
+            println!("Z Axis Calibrated")
+        }
+        if x_done && y_done && z_done {
+            break
+        }
+    }
+    let mag_avg = mpu9250::MagnetometerData {
+        x: (mag_max_x - mag_min_x) / 2,
+        y: (mag_max_y - mag_min_y) / 2,
+        z: (mag_max_z - mag_min_z) / 2,
+    };
+    let avg_radius = (mag_avg.x + mag_avg.y + mag_avg.z) / 3;
+
+    let mag_offset = mpu9250::MagnetometerData {
+        x: (mag_max_x + mag_min_x) / 2,
+        y: (mag_max_y + mag_min_y) / 2,
+        z: (mag_max_z + mag_min_z) / 2,
+    };
+    println!("mag_avg: {:?}", mag_avg);
+    println!("mag_offset: {:?}", mag_offset);
+    Ok(mag_offset)
+}
