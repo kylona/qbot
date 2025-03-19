@@ -24,6 +24,16 @@ mod tests {
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         assert!(mpu9250.get_motion_6().is_ok(), "Get motion 6 failed")
     }
+    #[test]
+    fn test_measure_motion_9() {
+        let mut mpu9250 = MPU9250::default();
+        assert!(mpu9250.initialize().is_ok(), "Initialize failed");
+        let (accel_meas, gyro_meas, mag_meas) = mpu9250.measure_motion_9().unwrap();
+        println!("Measured Data:");
+        println!("Accel: {:?}", accel_meas);
+        println!("Gyro: {:?}", gyro_meas);
+        println!("Mag: {:?}", mag_meas);
+    }
 
     #[test]
     fn test_get_motion_9() {

@@ -41,8 +41,7 @@ use i2c_linux::ReadFlags;
 use i2c_linux::WriteFlags;
 use std::path::Path;
 use std::fs::File;
-use std::io::BufReader;
-use std::io::stdin;
+use std::io::{stdin};
 use serde::{Deserialize, Serialize};
 
 pub mod mpu9150 {
@@ -518,14 +517,15 @@ impl MPU9250 {
     if (Path::new(&self.calibration_file_path).exists()) {
 				// Open the file in read-only mode with buffer.
 				let file = File::open(&self.calibration_file_path)?;
-				let reader = BufReader::new(file);
 				// Read the JSON contents of the file as an instance of `User`.
-                let calibration_data: MPU9250CalibrationData = serde_json::from_reader(reader).expect("JSON was not well-formatted");
+        let calibration_data: MPU9250CalibrationData = serde_json::from_reader(file).expect("JSON was not well-formatted");
     }
     else {
         let calibrate = prompt_yes_no("No calibration file found. Calibrate now? [y/n]")?;
         if calibrate {
             self.calibration_data = self.calibrate()?;
+            let file = File::create(&self.calibration_file_path)?;
+            serde_json::to_writer(file, &self.calibration_data).expect("Failed to write to calibration file.");
         }
     }
     Ok(())
@@ -2190,6 +2190,35 @@ pub fn get_int_data_ready_status(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_DATA_RDY_BIT)
 }
 
+/** Measure raw 9-axis motion sensor readings (accel/gyro/compass).
+ * Apply calibrations and return as f32 with standard units
+ * Acceleration is in G
+ * Rotation is in deg/s
+ * Magnetometer is in uT
+ * @see get_motion_9()
+ */
+pub fn measure_motion_9(&mut self) -> Result<(AccelerometerMeasurement, GyroscopeMeasurement, MagnetometerMeasurement)> {
+  //get accel and gyro
+  let (accelerometer_data, gyroscope_data, magnetometer_data) = self.get_motion_9()?;
+  //TODO get full scale based on register settings
+  let accel_meas = AccelerometerMeasurement {
+    x: f32::from(accelerometer_data.x - self.calibration_data.accel_offset.x) / 32768.0 * 2.0,
+    y: f32::from(accelerometer_data.y - self.calibration_data.accel_offset.y) / 32768.0 * 2.0,
+    z: f32::from(accelerometer_data.z - self.calibration_data.accel_offset.z) / 32768.0 * 2.0,
+  };
+  let gyro_meas = GyroscopeMeasurement {
+    x: f32::from(gyroscope_data.x - self.calibration_data.gyro_offset.x) / 32768.0 * 250.0,
+    y: f32::from(gyroscope_data.y - self.calibration_data.gyro_offset.y) / 32768.0 * 250.0,
+    z: f32::from(gyroscope_data.z - self.calibration_data.gyro_offset.z) / 32768.0 * 250.0,
+  };
+  let mag_meas = MagnetometerMeasurement {
+    x: f32::from(gyroscope_data.x - self.calibration_data.mag_offset.x) * self.calibration_data.mag_scale.x / 32768.0 * 0.6,
+    y: f32::from(gyroscope_data.y - self.calibration_data.mag_offset.y) * self.calibration_data.mag_scale.y / 32768.0 * 0.6,
+    z: f32::from(gyroscope_data.z - self.calibration_data.mag_offset.z) * self.calibration_data.mag_scale.z / 32768.0 * 0.6,
+  };
+  Ok((accel_meas, gyro_meas, mag_meas))
+}
+
 /** Get raw 9-axis motion sensor readings (accel/gyro/compass).
  * FUNCTION NOT FULLY IMPLEMENTED YET.
  * @see getMotion6()
@@ -3813,24 +3842,27 @@ pub fn set_dmp_config2(&self, config: u8) -> Result<()> {
 
 
 pub fn prompt_yes_no(message : &str) -> Result<bool> {
-let mut response = String::new();
-loop {
-    println!("No calibration file found. Calibrate now? [y/n]");
-    stdin().read_line(&mut response)?;
-    match response.as_str() {
-        "y" => {
-            return Ok(true);
-        },
-        "yes" => {
-            return Ok(true);
-        },
-        "n" => {
-            return Ok(false);
-        },
-        "no" => {
-            return Ok(false);
-        },
-        _ => println!("Please enter y or n"),
+    let mut response = String::new();
+    loop {
+        println!("No calibration file found. Calibrate now? [y/n]");
+        stdin().read_line(&mut response)?;
+        match response.trim() {
+            "y" => {
+                return Ok(true);
+            },
+            "yes" => {
+                return Ok(true);
+            },
+            "n" => {
+                return Ok(false);
+            },
+            "no" => {
+                return Ok(false);
+            },
+            _ => {
+                println!("Please enter y or n");
+                println!("{}", response.trim());
+            },
+        }
     }
-}
 }
