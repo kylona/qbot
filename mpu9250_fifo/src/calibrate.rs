@@ -116,12 +116,12 @@ pub fn calibrate_magnetometer(mpu9250 : &mut mpu9250::MPU9250) -> Result<(mpu925
             break
         }
     }
-    let mag_avg = mpu9250::MagnetometerData {
-        x: (mag_max_x - mag_min_x) / 2,
-        y: (mag_max_y - mag_min_y) / 2,
-        z: (mag_max_z - mag_min_z) / 2,
+    let mag_avg = mpu9250::MagnetometerMeasurement {
+        x: f32::from(mag_max_x - mag_min_x) / 2.0,
+        y: f32::from(mag_max_y - mag_min_y) / 2.0,
+        z: f32::from(mag_max_z - mag_min_z) / 2.0,
     };
-    let avg_radius = (mag_avg.x + mag_avg.y + mag_avg.z) / 3;
+    let avg_radius = (mag_avg.x + mag_avg.y + mag_avg.z) / 3.0;
 
     let mag_offset = mpu9250::MagnetometerData {
         x: (mag_max_x + mag_min_x) / 2,
@@ -130,5 +130,10 @@ pub fn calibrate_magnetometer(mpu9250 : &mut mpu9250::MPU9250) -> Result<(mpu925
     };
     println!("mag_avg: {:?}", mag_avg);
     println!("mag_offset: {:?}", mag_offset);
-    Ok(mag_offset)
+    let mag_scale = mpu9250::MagnetometerMeasurement {
+        x: avg_radius / mag_avg.x,
+        y: avg_radius / mag_avg.y,
+        z: avg_radius / mag_avg.z,
+    };
+    Ok((mag_offset, mag_scale))
 }

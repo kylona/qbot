@@ -417,38 +417,38 @@ const DMP_MEMORY_CHUNK_SIZE : u8 = 16;
 
 
 // ACCEL_*OUT_* registers
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct AccelerometerData {
   pub x: i16,
   pub y: i16,
   pub z: i16,
 }
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct GyroscopeData {
   pub x: i16,
   pub y: i16,
   pub z: i16,
 }
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct MagnetometerData {
   pub x: i16,
   pub y: i16,
   pub z: i16,
 }
 // ACCEL_*OUT_* registers
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct AccelerometerMeasurement {
   pub x: f32,
   pub y: f32,
   pub z: f32,
 }
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct GyroscopeMeasurement {
   pub x: f32,
   pub y: f32,
   pub z: f32,
 }
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct MagnetometerMeasurement {
   pub x: f32,
   pub y: f32,
@@ -456,13 +456,22 @@ pub struct MagnetometerMeasurement {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct MPU9250CalibrationData {
+pub struct MPU9250CalibrationData {
     pub accel_offset : AccelerometerData,
     pub gyro_offset : GyroscopeData,
     pub mag_offset : MagnetometerData,
     pub mag_scale : MagnetometerMeasurement,
 }
-
+impl MPU9250CalibrationData {
+    pub fn default() -> Self {
+       Self {
+        accel_offset: AccelerometerData {x: 0, y: 0, z: 0},
+        gyro_offset: GyroscopeData {x: 0, y: 0, z: 0},
+        mag_offset: MagnetometerData {x: 0, y: 0, z: 0},
+        mag_scale: MagnetometerMeasurement {x: 1.0, y: 1.0, z: 1.0},
+       }
+    }
+}
 
 /** Specific address constructor.
 * @param address I2C address
@@ -474,6 +483,7 @@ pub struct MPU9250 {
     pub dev_address : u16,
     pub i2c : I2c<std::fs::File>,
     pub calibration_file_path : String,
+    pub calibration_data : MPU9250CalibrationData,
 }
 impl MPU9250 {
 
@@ -488,8 +498,10 @@ impl MPU9250 {
         dev_address: dev_address,
         i2c: i2c,
         calibration_file_path : String::from(calibration_file_path),
+        calibration_data : MPU9250CalibrationData::default(),
     }
   }
+
 
   /** Power on and prepare for general usage.
    * This will activate the device and take it out of sleep mode (which must be done
@@ -503,56 +515,35 @@ impl MPU9250 {
     self.set_full_scale_gyro_range(GYRO_FS_250)?;
     self.set_full_scale_accel_range(ACCEL_FS_2)?;
     self.set_sleep_enabled(false)?;
-    if (Path::new(self.calibration_file_path).exists()) {
+    if (Path::new(&self.calibration_file_path).exists()) {
 				// Open the file in read-only mode with buffer.
-				let file = File::open(self.calibration_file_path)?;
+				let file = File::open(&self.calibration_file_path)?;
 				let reader = BufReader::new(file);
 				// Read the JSON contents of the file as an instance of `User`.
-				let u = serde_json::from_reader(reader)?;
-        let calibration_data: MPU9250CalibrationData = serde_json::from_reader(reader).expect("JSON was not well-formatted");
+                let calibration_data: MPU9250CalibrationData = serde_json::from_reader(reader).expect("JSON was not well-formatted");
     }
-		else {
-        let calibrate = false;
-        loop {
-            println!("No calibration file found. Calibrate now? [y/n]");
-            let mut response = String::new();
-            io::stdin().read_line(&mut response)?;
-            match response.as_str() {
-                "y" => {
-                    calbirate = true;
-                    break;
-                },
-                "yes" => {
-                    calbirate = true;
-                    break;
-                },
-                "n" => {
-                    calbirate = false;
-                    break;
-                },
-                "no" => {
-                    calbirate = false;
-                    break;
-                },
-                _ => println!("Please enter y or n"),
-
-            }
-        }
+    else {
+        let calibrate = prompt_yes_no("No calibration file found. Calibrate now? [y/n]")?;
         if calibrate {
-            self.calibration_data = self.calibrate();
+            self.calibration_data = self.calibrate()?;
         }
-		}
+    }
     Ok(())
   }
 
   /** Collect data and calculate offset and gain corrections.
    * Store the results in self.calibration_file_path.
    */
-  pub fn calibrate(&mut self) -> Result<()> {
-    calibrate::calibrate_gyroscope(self)?;
-    calibrate::calibrate_accelerometer(self)?;
-    calibrate::calibrate_magnetometer(self)?;
-    Ok(())
+  pub fn calibrate(&mut self) -> Result<MPU9250CalibrationData> {
+    let gyro_offset = calibrate::calibrate_gyroscope(self)?;
+    let accel_offset = calibrate::calibrate_accelerometer(self)?;
+    let (mag_offset, mag_scale) = calibrate::calibrate_magnetometer(self)?;
+    Ok(MPU9250CalibrationData {
+        gyro_offset: gyro_offset,
+        accel_offset: accel_offset,
+        mag_offset: mag_offset,
+        mag_scale: mag_scale,
+    })
   }
 
   /** Verify the I2C connection.
@@ -3818,8 +3809,28 @@ pub fn set_dmp_config2(&self, config: u8) -> Result<()> {
     i2c::write_byte(self.dev_address, RA_DMP_CFG_2, config)
 }
 
-
-
-
 }
 
+
+pub fn prompt_yes_no(message : &str) -> Result<bool> {
+let mut response = String::new();
+loop {
+    println!("No calibration file found. Calibrate now? [y/n]");
+    stdin().read_line(&mut response)?;
+    match response.as_str() {
+        "y" => {
+            return Ok(true);
+        },
+        "yes" => {
+            return Ok(true);
+        },
+        "n" => {
+            return Ok(false);
+        },
+        "no" => {
+            return Ok(false);
+        },
+        _ => println!("Please enter y or n"),
+    }
+}
+}
