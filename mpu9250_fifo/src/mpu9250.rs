@@ -721,6 +721,36 @@ impl MPU9250 {
     i2c::write_bits(self.dev_address, RA_CONFIG, CFG_FIFO_MODE_BIT, CFG_FIFO_MODE_LENGTH, mode)
   }
 
+const NO_DLPF_FIFO_CLOCK_RATE : u16 = 8000;
+const DLPF_FIFO_CLOCK_RATE : u16 = 1000;
+/** Configure the MPU9250 FIFO rate with seinsible default filtering.
+ * @param frequency The desired sampling frequency in Hz. 
+ * Not all frequencies are possible we will pick a divider to get close to the requested frequency
+ */
+pub fn set_fifo_rate(&mut self, frequency : u16) -> Result<()> {
+    // If fifo overflows its difficult to map bytes to their correct axis of measurement
+    // Better to configure so we keep valid but stale data
+    self.set_fifo_mode(1u8);
+    let mut rate = 0;
+    if rate > Self::DLPF_FIFO_CLOCK_RATE {
+        // This is probably ill advised. 
+        self.set_dlpf_mode(DLPF_BW_256)?;
+        rate = Self::NO_DLPF_FIFO_CLOCK_RATE / frequency;
+    }
+    else {
+        self.set_dlpf_mode(DLPF_BW_188)?;
+        rate = Self::DLPF_FIFO_CLOCK_RATE / frequency;
+    }
+    if rate < 256 {
+        self.set_rate(rate.try_into().unwrap())?;
+    }
+    else {
+        self.set_rate(255)?;
+    }
+    println!("RATE: {}", rate);
+    Ok(())
+}
+
   // GYRO_CONFIG register
   
   /** Get full-scale gyroscope range.
@@ -2190,10 +2220,46 @@ pub fn get_int_data_ready_status(&mut self) -> Result<u8> {
     i2c::read_bit(self.dev_address, RA_INT_STATUS, INTERRUPT_DATA_RDY_BIT)
 }
 
+/** Apply calibrations and return as f32 with standard units
+ * Acceleration is in G
+ */
+pub fn accelerometer_data_to_measurement(&mut self, accelerometer_data : AccelerometerData) -> AccelerometerMeasurement {
+  //TODO get full scale based on register settings
+  AccelerometerMeasurement {
+    x: f32::from(accelerometer_data.x - self.calibration_data.accel_offset.x) / 32768.0 * 2.0,
+    y: f32::from(accelerometer_data.y - self.calibration_data.accel_offset.y) / 32768.0 * 2.0,
+    z: f32::from(accelerometer_data.z - self.calibration_data.accel_offset.z) / 32768.0 * 2.0,
+  }
+}
+
+/** Apply calibrations and return as f32 with standard units
+ * Rotation is in degree/s
+ */
+pub fn gyroscope_data_to_measurement(&mut self, gyroscope_data : GyroscopeData) -> GyroscopeMeasurement {
+  //TODO get full scale based on register settings
+  GyroscopeMeasurement {
+    x: f32::from(gyroscope_data.x - self.calibration_data.gyro_offset.x) / 32768.0 * 250.0,
+    y: f32::from(gyroscope_data.y - self.calibration_data.gyro_offset.y) / 32768.0 * 250.0,
+    z: f32::from(gyroscope_data.z - self.calibration_data.gyro_offset.z) / 32768.0 * 250.0,
+  }
+}
+
+/** Apply calibrations and return as f32 with standard units
+ * Rotation is in degree/s
+ */
+pub fn magnetometer_data_to_measurement(&mut self, magnetometer_data : MagnetometerData) -> MagnetometerMeasurement {
+  //TODO get full scale based on register settings
+  MagnetometerMeasurement {
+    x: f32::from(magnetometer_data.x - self.calibration_data.mag_offset.x) * self.calibration_data.mag_scale.x * 0.6,
+    y: f32::from(magnetometer_data.y - self.calibration_data.mag_offset.y) * self.calibration_data.mag_scale.y * 0.6,
+    z: f32::from(magnetometer_data.z - self.calibration_data.mag_offset.z) * self.calibration_data.mag_scale.z * 0.6,
+  }
+}
+
 /** Measure raw 9-axis motion sensor readings (accel/gyro/compass).
  * Apply calibrations and return as f32 with standard units
  * Acceleration is in G
- * Rotation is in deg/s
+ * Rotation is in degree/s
  * Magnetometer is in uT
  * @see get_motion_9()
  */
@@ -2201,21 +2267,9 @@ pub fn measure_motion_9(&mut self) -> Result<(AccelerometerMeasurement, Gyroscop
   //get accel and gyro
   let (accelerometer_data, gyroscope_data, magnetometer_data) = self.get_motion_9()?;
   //TODO get full scale based on register settings
-  let accel_meas = AccelerometerMeasurement {
-    x: f32::from(accelerometer_data.x - self.calibration_data.accel_offset.x) / 32768.0 * 2.0,
-    y: f32::from(accelerometer_data.y - self.calibration_data.accel_offset.y) / 32768.0 * 2.0,
-    z: f32::from(accelerometer_data.z - self.calibration_data.accel_offset.z) / 32768.0 * 2.0,
-  };
-  let gyro_meas = GyroscopeMeasurement {
-    x: f32::from(gyroscope_data.x - self.calibration_data.gyro_offset.x) / 32768.0 * 250.0,
-    y: f32::from(gyroscope_data.y - self.calibration_data.gyro_offset.y) / 32768.0 * 250.0,
-    z: f32::from(gyroscope_data.z - self.calibration_data.gyro_offset.z) / 32768.0 * 250.0,
-  };
-  let mag_meas = MagnetometerMeasurement {
-    x: f32::from(gyroscope_data.x - self.calibration_data.mag_offset.x) * self.calibration_data.mag_scale.x * 0.6,
-    y: f32::from(gyroscope_data.y - self.calibration_data.mag_offset.y) * self.calibration_data.mag_scale.y * 0.6,
-    z: f32::from(gyroscope_data.z - self.calibration_data.mag_offset.z) * self.calibration_data.mag_scale.z * 0.6,
-  };
+  let accel_meas = self.accelerometer_data_to_measurement(accelerometer_data);
+  let gyro_meas = self.gyroscope_data_to_measurement(gyroscope_data);
+  let mag_meas = self.magnetometer_data_to_measurement(magnetometer_data);
   Ok((accel_meas, gyro_meas, mag_meas))
 }
 
@@ -3274,10 +3328,15 @@ pub fn get_fifo_count(&self) -> Result<u16> {
 }
 
 pub fn flush_fifo(&mut self) -> Result<()> {
+    // Remember their fifo enabled flags
     let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
+    // Stop data from being added to the FIFO
     self.set_fifo_enabled_flags(0x0)?;
+    // Read 512 bytes to empty the fifo
     let mut data = [0u8; 512];
     self.get_fifo_data(&mut data)?;
+    // Restore the original fifo enabled flags
+    self.set_fifo_enabled_flags(fifo_en_setting)?;
     Ok(())
 }
 
@@ -3370,6 +3429,36 @@ pub fn parse_fifo_data(
     }
     Ok(0)
 }
+
+pub fn get_fifo_measurements(
+    &mut self,
+    accel_meas: &mut [AccelerometerMeasurement],
+    gyro_meas: &mut [GyroscopeMeasurement],
+    fifo_enabled_flags : u8,
+) -> Result<usize> {
+    let mut data = [0u8; 512];
+    let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
+    let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
+    let data_count = self.get_fifo_data(&mut data)?;
+    let remaining_data_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, data_count, fifo_enabled_flags)?;
+
+    let mut fifo_count = self.get_fifo_count()?;
+    let mut messages = [
+        Message::Write {
+            address: self.dev_address,
+            data: &[RA_FIFO_R_W],
+            flags: WriteFlags::empty(),
+        },
+        Message::Read {
+            address: self.dev_address,
+            data: &mut data[0..fifo_count as usize],
+            flags: ReadFlags::empty(),
+        },
+    ];
+    self.i2c.i2c_transfer(&mut messages);
+    Ok(fifo_count as usize)
+}
+
 
 // FIFO_R_W register
 

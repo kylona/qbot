@@ -67,13 +67,9 @@ mod tests {
         let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
 
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
-        mpu9250.set_rate(0).expect("Set rate failed");
-        mpu9250.set_dlpf_mode(mpu9250::DLPF_BW_188).expect("Set digital low pass filter mode failed");
-        let rate = mpu9250.get_rate().unwrap();
-        println!("RATE: {}", rate);
-        mpu9250.set_fifo_enabled(true).expect("Failed to enable fifo");
+        mpu9250.set_fifo_enabled(true).expect("Fifo enable failed");
+        mpu9250.set_fifo_rate(500).expect("Set fifo rate failed");
         mpu9250.flush_fifo().expect("Flush fifo failed");
-        mpu9250.set_fifo_mode(1u8).expect("Set fifo mode failed");
         let fifo_enabled_flags : u8 = 0b01111000;
         for _ in 0..100 {
             mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
