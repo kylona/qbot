@@ -2212,9 +2212,9 @@ pub fn measure_motion_9(&mut self) -> Result<(AccelerometerMeasurement, Gyroscop
     z: f32::from(gyroscope_data.z - self.calibration_data.gyro_offset.z) / 32768.0 * 250.0,
   };
   let mag_meas = MagnetometerMeasurement {
-    x: f32::from(gyroscope_data.x - self.calibration_data.mag_offset.x) * self.calibration_data.mag_scale.x / 32768.0 * 0.6,
-    y: f32::from(gyroscope_data.y - self.calibration_data.mag_offset.y) * self.calibration_data.mag_scale.y / 32768.0 * 0.6,
-    z: f32::from(gyroscope_data.z - self.calibration_data.mag_offset.z) * self.calibration_data.mag_scale.z / 32768.0 * 0.6,
+    x: f32::from(gyroscope_data.x - self.calibration_data.mag_offset.x) * self.calibration_data.mag_scale.x * 0.6,
+    y: f32::from(gyroscope_data.y - self.calibration_data.mag_offset.y) * self.calibration_data.mag_scale.y * 0.6,
+    z: f32::from(gyroscope_data.z - self.calibration_data.mag_offset.z) * self.calibration_data.mag_scale.z * 0.6,
   };
   Ok((accel_meas, gyro_meas, mag_meas))
 }
