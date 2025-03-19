@@ -1,6 +1,6 @@
-mod mpu9250;
-mod i2c;
-mod calibrate;
+pub mod mpu9250;
+pub mod i2c;
+pub mod calibrate;
 pub use crate::mpu9250::MPU9250;
 pub use crate::mpu9250::AccelerometerData;
 pub use crate::mpu9250::GyroscopeData;
