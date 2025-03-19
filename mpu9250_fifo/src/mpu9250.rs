@@ -739,7 +739,7 @@ pub fn set_fifo_rate(&mut self, frequency : u16) -> Result<()> {
     }
     else {
         self.set_dlpf_mode(DLPF_BW_188)?;
-        rate = Self::DLPF_FIFO_CLOCK_RATE / frequency;
+        rate = (Self::DLPF_FIFO_CLOCK_RATE / frequency) - 1;
     }
     if rate < 256 {
         self.set_rate(rate.try_into().unwrap())?;
@@ -747,7 +747,6 @@ pub fn set_fifo_rate(&mut self, frequency : u16) -> Result<()> {
     else {
         self.set_rate(255)?;
     }
-    println!("RATE: {}", rate);
     Ok(())
 }
 
@@ -3379,6 +3378,7 @@ pub fn parse_fifo_data(
     let mut gyro_x = 0;
     let mut gyro_y = 0;
     let mut gyro_z = 0;
+    let mut frame_count = 0;
     while index < data_count {
         if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
            if data_count - index < 6 {
@@ -3399,21 +3399,21 @@ pub fn parse_fifo_data(
         }
         if ((fifo_enable_flags & (0x1 << XG_FIFO_EN_BIT)) != 0) {
            if data_count - index < 2 {
-                return Ok(data_count-index);
+                return Ok(frame_count);
            }
            gyro_x = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
         }
         if ((fifo_enable_flags & (0x1 << YG_FIFO_EN_BIT)) != 0) {
            if data_count - index < 2 {
-                return Ok(data_count-index);
+                return Ok(frame_count);
            }
            gyro_y = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
         }
         if ((fifo_enable_flags & (0x1 << ZG_FIFO_EN_BIT)) != 0) {
            if data_count - index < 2 {
-                return Ok(data_count-index);
+                return Ok(frame_count);
            }
            gyro_z = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
@@ -3426,8 +3426,9 @@ pub fn parse_fifo_data(
            };
            gyro_index += 1;
         }
+        frame_count += 1;
     }
-    Ok(0)
+    Ok(frame_count)
 }
 
 pub fn get_fifo_measurements(
@@ -3440,23 +3441,13 @@ pub fn get_fifo_measurements(
     let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
     let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
     let data_count = self.get_fifo_data(&mut data)?;
-    let remaining_data_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, data_count, fifo_enabled_flags)?;
+    let frame_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, data_count, fifo_enabled_flags)?;
+    for frame_index in 0..frame_count {
+        accel_meas[frame_index] = self.accelerometer_data_to_measurement(accel_data[frame_index]);
+        gyro_meas[frame_index] = self.gyroscope_data_to_measurement(gyro_data[frame_index]);
+    }
 
-    let mut fifo_count = self.get_fifo_count()?;
-    let mut messages = [
-        Message::Write {
-            address: self.dev_address,
-            data: &[RA_FIFO_R_W],
-            flags: WriteFlags::empty(),
-        },
-        Message::Read {
-            address: self.dev_address,
-            data: &mut data[0..fifo_count as usize],
-            flags: ReadFlags::empty(),
-        },
-    ];
-    self.i2c.i2c_transfer(&mut messages);
-    Ok(fifo_count as usize)
+    Ok(frame_count as usize)
 }
 
 
