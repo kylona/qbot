@@ -18,7 +18,7 @@ fn main() {
     let mut mag_meas = [MagnetometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
     mpu9250.set_fifo_enabled(true).expect("Fifo enable failed");
     mpu9250.set_fifo_rate(u16::from(DATA_RATE)).expect("Set fifo rate failed");
-    let fifo_enabled_flags : u8 = 0b01111000;
+    let fifo_enabled_flags : u8 = 0b01111001;
     mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
     mpu9250.flush_fifo().expect("Flush fifo failed");
     loop {
@@ -36,7 +36,6 @@ fn main() {
             let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, gyro_meas[i].z as f64);
             let accelerometer = Vector3::new(accel_meas[i].x as f64, accel_meas[i].y as f64, accel_meas[i].z as f64);
             let magnetometer = Vector3::new(mag_meas[i].x as f64, mag_meas[i].y as f64, mag_meas[i].z as f64);
-            println!("Mag: {:?}", mag_meas[i]);
 
             // Run inputs through AHRS filter (gyroscope must be radians/s)
             quat = match ahrs.update(
@@ -50,8 +49,9 @@ fn main() {
                 }
             };
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        std::thread::sleep(std::time::Duration::from_millis(100));
         let (roll, pitch, yaw) = quat.euler_angles();
+        println!("Mag: {:?}", mag_meas[0]);
         // Do something with the updated state quaternion
         println!("pitch={}, roll={}, yaw={}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
     }

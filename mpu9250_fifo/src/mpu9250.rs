@@ -40,7 +40,6 @@ use i2c_linux::Message;
 use i2c_linux::ReadFlags;
 use i2c_linux::WriteFlags;
 use mpu9150::RA_MAG_ADDRESS;
-use mpu9150::RA_MAG_XOUT_H;
 use std::path::Path;
 use std::fs::File;
 use std::io::{stdin};
@@ -51,7 +50,8 @@ pub mod mpu9150 {
     //Magnetometer Registers
     pub const RA_MAG_ADDRESS      : u16 = 0x0C;
     pub const RA_MAG_CTRL          : u8 = 0x0A;
-    pub const RA_MAG_CTRL_SNGL_MSR : u8 = 0x01;
+    pub const RA_MAG_CTRL_CONT_MSR : u8 = 0x06;
+    pub const RA_MAG_STS_1         : u8 = 0x02;
     pub const RA_MAG_XOUT_L        : u8 = 0x03;
     pub const RA_MAG_XOUT_H        : u8 = 0x04;
     pub const RA_MAG_YOUT_L        : u8 = 0x05;
@@ -516,6 +516,11 @@ impl MPU9250 {
     self.set_full_scale_gyro_range(GYRO_FS_250)?;
     self.set_full_scale_accel_range(ACCEL_FS_2)?;
     self.set_sleep_enabled(false)?;
+    self.set_i2c_master_mode_enabled(false)?;
+    self.set_i2c_bypass_enabled(true)?;
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    self.set_magnetometer_enabled(true);
+    std::thread::sleep(std::time::Duration::from_millis(10));
     if (Path::new(&self.calibration_file_path).exists()) {
 				// Open the file in read-only mode with buffer.
 				let file = File::open(&self.calibration_file_path)?;
@@ -561,9 +566,18 @@ impl MPU9250 {
 
   pub fn setup_magnetometer_as_slave0(&mut self) -> Result<()> {
     let slave_addr : u8 = RA_MAG_ADDRESS.try_into().unwrap();
-    self.set_slave_address(0, slave_addr);
-    self.set_slave_register(0, RA_MAG_XOUT_H);
-    self.set_slave_data_length(0, 6);
+    self.set_i2c_master_mode_enabled(false)?;
+    self.set_i2c_bypass_enabled(true)?;
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    self.set_magnetometer_enabled(true);
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    self.set_i2c_bypass_enabled(false)?;
+    self.set_i2c_master_mode_enabled(true)?;
+    self.set_slave_enabled(0, true)?;
+    self.set_slave_address(0, slave_addr | (0x1 << 7))?;
+    self.set_slave_register(0, mpu9150::RA_MAG_STS_1)?;
+    self.set_slave_data_length(0, 8)?; //Length 7 so we read status 2 register to unlatch registers
+    self.set_slave_read_write_transition_enabled(true)?;
     Ok(())
   }
 
@@ -2320,15 +2334,10 @@ pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
 }
 
 pub fn get_magnetometer_data(&mut self) -> Result<MagnetometerData> {
-    // This must be repeated for each pass through read to the peripheral device 
-    // This does not seem to be documented in the data sheet
-    self.set_i2c_bypass_enabled(true);
-    std::thread::sleep(std::time::Duration::from_millis(10));
-    self.set_magnetometer_enabled(true);
-    std::thread::sleep(std::time::Duration::from_millis(10));
     //read mag
-    let mut buffer = [0; 6];
-    i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 6, &mut buffer)?;
+    let mut buffer = [0; 7];
+    //Must read 7 bytes to read the status 2 register to unlatch values
+    i2c::read_bytes(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_XOUT_L, 7, &mut buffer)?;
     Ok(MagnetometerData {
         x : ((buffer[1] as i16) << 8) | buffer[0] as i16,
         y : ((buffer[3] as i16) << 8) | buffer[2] as i16,
@@ -3065,7 +3074,7 @@ pub fn set_sleep_enabled(&mut self, enabled: bool) -> Result<()> {
 }
 
 pub fn set_magnetometer_enabled(&mut self, enabled: bool) -> Result<()> {
-    i2c::write_byte(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_CTRL, mpu9150::RA_MAG_CTRL_SNGL_MSR)
+    i2c::write_byte(mpu9150::RA_MAG_ADDRESS, mpu9150::RA_MAG_CTRL, mpu9150::RA_MAG_CTRL_CONT_MSR)
 }
 
   /** Get wake cycle enabled status.
@@ -3351,6 +3360,9 @@ pub fn flush_fifo(&mut self) -> Result<()> {
 
 pub fn get_fifo_data(&mut self, data: &mut [u8]) -> Result<usize> {
     let mut fifo_count = self.get_fifo_count()?;
+    if fifo_count == 0 {
+        return Ok(fifo_count as usize);
+    }
     let mut messages = [
         Message::Write {
             address: self.dev_address,
@@ -3380,7 +3392,7 @@ pub fn parse_fifo_data(
     let mut accel_index : usize = 0;
     let mut gyro_index : usize = 0;
     let mut mag_index : usize = 0;
-    const PARSABLE_FLAGS : u8 = 0b01111000;
+    const PARSABLE_FLAGS : u8 = 0b01111001;
     if (fifo_enable_flags & PARSABLE_FLAGS) == 0 {
         return Err(anyhow!("No parsible data"))
     }
@@ -3442,15 +3454,19 @@ pub fn parse_fifo_data(
            gyro_index += 1;
         }
         if ((fifo_enable_flags & (0x1 << SLV0_FIFO_EN_BIT)) != 0) {
-           if data_count - index < 6 {
+           if data_count - index < 8 {
                 return Ok(data_count-index);
            }
-           mag_x = (((data[index] as i16) << 8) | data[index+1] as i16);
+           let _mag_status_2 = data[index];
+           index += 1;
+           mag_x = (((data[index+1] as i16) << 8) | data[index] as i16);
            index += 2;
-           mag_y = (((data[index] as i16) << 8) | data[index+1] as i16);
+           mag_y = (((data[index+1] as i16) << 8) | data[index] as i16);
            index += 2;
-           mag_z = (((data[index] as i16) << 8) | data[index+1] as i16);
+           mag_z = (((data[index+1] as i16) << 8) | data[index] as i16);
            index += 2;
+           let _mag_status_2 = data[index];
+           index += 1;
            mag_data[mag_index] = MagnetometerData {
              x: mag_x,
              y: mag_y,

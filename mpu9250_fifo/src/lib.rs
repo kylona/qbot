@@ -92,23 +92,24 @@ mod tests {
         let mut data = [0u8; 512];
         let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
         let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
-        let mut mag_data = [MagnetometerData { x: 0, y : 0, z: 0}; 50];
+        let mut mag_data = [MagnetometerData { x: 0, y : 0, z: 0}; 86];
 
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
-        mpu9250.setup_magnetometer_as_slave0();
         mpu9250.set_fifo_enabled(true).expect("Fifo enable failed");
         mpu9250.set_fifo_rate(500).expect("Set fifo rate failed");
-        mpu9250.flush_fifo().expect("Flush fifo failed");
         let fifo_enabled_flags : u8 = 0b00000001;
+        mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
+        mpu9250.flush_fifo().expect("Flush fifo failed");
+        mpu9250.setup_magnetometer_as_slave0().expect("SETTING UP MAGNETOMETER AS SLAVE FAILED");
         for _ in 0..100 {
             mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
-            std::thread::sleep(std::time::Duration::from_millis(10));
+            std::thread::sleep(std::time::Duration::from_millis(100));
             mpu9250.set_fifo_enabled_flags(0x0).expect("Reseting fifo enable flags failed");
             let data_count = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
             let frame_count = mpu9250.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count, fifo_enabled_flags).expect("Parse data failed");
             println!("DATA COUNT: {}", data_count);
             println!("FRAME_COUNT: {}", frame_count);
-            println!("PARSED MAG DATA: {:?}", gyro_data[0]);
+            println!("PARSED MAG DATA: {:?}", mag_data[0]);
         }
         mpu9250.set_fifo_enabled_flags(0x0).expect("Reseting fifo enable flags failed");
     }
