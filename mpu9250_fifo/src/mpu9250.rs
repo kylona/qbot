@@ -39,6 +39,8 @@ use i2c_linux::I2c;
 use i2c_linux::Message;
 use i2c_linux::ReadFlags;
 use i2c_linux::WriteFlags;
+use mpu9150::RA_MAG_ADDRESS;
+use mpu9150::RA_MAG_XOUT_H;
 use std::path::Path;
 use std::fs::File;
 use std::io::{stdin};
@@ -555,6 +557,14 @@ impl MPU9250 {
         Ok(val) => return val == 0x71,
         Err(_) => return false,
     }
+  }
+
+  pub fn setup_magnetometer_as_slave0(&mut self) -> Result<()> {
+    let slave_addr : u8 = RA_MAG_ADDRESS.try_into().unwrap();
+    self.set_slave_address(0, slave_addr);
+    self.set_slave_register(0, RA_MAG_XOUT_H);
+    self.set_slave_data_length(0, 6);
+    Ok(())
   }
 
   // AUX_VDDIO register (InvenSense demo code calls this RA_*G_OFFS_TC)
@@ -3362,12 +3372,14 @@ pub fn parse_fifo_data(
     data: &[u8],
     accel_data: &mut[AccelerometerData],
     gyro_data: &mut[GyroscopeData],
+    mag_data: &mut[MagnetometerData],
     data_count : usize,
     fifo_enable_flags : u8,
 ) -> Result<usize> {
     let mut index : usize = 0;
     let mut accel_index : usize = 0;
     let mut gyro_index : usize = 0;
+    let mut mag_index : usize = 0;
     const PARSABLE_FLAGS : u8 = 0b01111000;
     if (fifo_enable_flags & PARSABLE_FLAGS) == 0 {
         return Err(anyhow!("No parsible data"))
@@ -3378,6 +3390,9 @@ pub fn parse_fifo_data(
     let mut gyro_x = 0;
     let mut gyro_y = 0;
     let mut gyro_z = 0;
+    let mut mag_x = 0;
+    let mut mag_y = 0;
+    let mut mag_z = 0;
     let mut frame_count = 0;
     while index < data_count {
         if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
@@ -3426,6 +3441,23 @@ pub fn parse_fifo_data(
            };
            gyro_index += 1;
         }
+        if ((fifo_enable_flags & (0x1 << SLV0_FIFO_EN_BIT)) != 0) {
+           if data_count - index < 6 {
+                return Ok(data_count-index);
+           }
+           mag_x = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+           mag_y = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+           mag_z = (((data[index] as i16) << 8) | data[index+1] as i16);
+           index += 2;
+           mag_data[mag_index] = MagnetometerData {
+             x: mag_x,
+             y: mag_y,
+             z: mag_z,
+           };
+           mag_index += 1;
+        }
         frame_count += 1;
     }
     Ok(frame_count)
@@ -3435,16 +3467,19 @@ pub fn get_fifo_measurements(
     &mut self,
     accel_meas: &mut [AccelerometerMeasurement],
     gyro_meas: &mut [GyroscopeMeasurement],
+    mag_meas: &mut [MagnetometerMeasurement],
     fifo_enabled_flags : u8,
 ) -> Result<usize> {
     let mut data = [0u8; 512];
     let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
     let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
+    let mut mag_data = [MagnetometerData { x: 0, y : 0, z: 0}; 50];
     let data_count = self.get_fifo_data(&mut data)?;
-    let frame_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, data_count, fifo_enabled_flags)?;
+    let frame_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count, fifo_enabled_flags)?;
     for frame_index in 0..frame_count {
         accel_meas[frame_index] = self.accelerometer_data_to_measurement(accel_data[frame_index]);
         gyro_meas[frame_index] = self.gyroscope_data_to_measurement(gyro_data[frame_index]);
+        mag_meas[frame_index] = self.magnetometer_data_to_measurement(mag_data[frame_index]);
     }
 
     Ok(frame_count as usize)

@@ -22,7 +22,7 @@ fn main() {
     mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
     mpu9250.flush_fifo().expect("Flush fifo failed");
     loop {
-        let data_count = mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, fifo_enabled_flags).expect("Fetch fifo data failed");
+        let data_count = mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas, fifo_enabled_flags).expect("Fetch fifo data failed");
         //let (accel_meas_datum, gyro_meas_datum, mag_meas_datum) = mpu9250.measure_motion_9().expect("Could not connect to mpu9250");
         //println!("Measured Data:");
         //println!("Accel: {:?}", accel_meas_datum);
@@ -35,13 +35,14 @@ fn main() {
             // Obtain sensor values from a source
             let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, gyro_meas[i].z as f64);
             let accelerometer = Vector3::new(accel_meas[i].x as f64, accel_meas[i].y as f64, accel_meas[i].z as f64);
-            // let magnetometer = Vector3::new(mag_meas.x as f64, mag_meas.y as f64, mag_meas.z as f64);
+            let magnetometer = Vector3::new(mag_meas[i].x as f64, mag_meas[i].y as f64, mag_meas[i].z as f64);
+            println!("Mag: {:?}", mag_meas[i]);
 
             // Run inputs through AHRS filter (gyroscope must be radians/s)
-            quat = match ahrs.update_imu(
+            quat = match ahrs.update(
                 &(gyroscope * (f64::consts::PI / 180.0)),
                 &accelerometer,
-                //&magnetometer,
+                &magnetometer,
             ) {
                 Ok(val) => *val,
                 Err(_) => {
