@@ -7,26 +7,18 @@ use std::f64;
 use std::io::Write;
 use std::io::stdout;
 
-const DATA_RATE : u16 = 500;
-
 fn main() {
     let mut accel_meas = [AccelerometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
     let mut gyro_meas = [GyroscopeMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
     let mut mag_meas = [MagnetometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
 
     // Initialize filter with default values
-    let mut ahrs = Madgwick::new(1.0/f64::from(DATA_RATE), 0.1);
-
+    let mut ahrs = Madgwick::new(1.0/f64::from(500), 0.1);
     let mut mpu9250 = MPU9250::default();
     mpu9250.initialize().expect("Failed to initialize mpu9250");
-    mpu9250.set_fifo_enabled(true).expect("Fifo enable failed");
-    mpu9250.set_fifo_rate(u16::from(DATA_RATE)).expect("Set fifo rate failed");
-    let fifo_enabled_flags : u8 = 0b01111000;
-    mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
-    mpu9250.flush_fifo().expect("Flush fifo failed");
-    mpu9250.setup_magnetometer_as_slave0().expect("SETTING UP MAGNETOMETER AS SLAVE FAILED");
+    mpu9250.start_fifo().expect("Failed to start FIFO");
     loop {
-        let data_count = match mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas, fifo_enabled_flags) {
+        let data_count = match mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas) {
             Ok(count) => count,
             Err(_) => {
                 println!("FIFO Overflow detected");
@@ -64,6 +56,6 @@ fn main() {
         let (roll, pitch, yaw) = quat.euler_angles();
         // Do something with the updated state quaternion
         print!("pitch={:0.5}, roll={:0.5}, yaw={:0.5}\r", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
-        stdout().flush();
+        stdout().flush().expect("Flush std out failed");
     }
 }

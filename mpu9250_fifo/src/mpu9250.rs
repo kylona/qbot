@@ -475,6 +475,45 @@ impl MPU9250CalibrationData {
     }
 }
 
+pub mod sample_rate {
+    use super::{DLPF_BW_256, DLPF_BW_188, DLPF_BW_98, DLPF_BW_42, DLPF_BW_10, DLPF_BW_5};
+
+    pub const FREQUENCY_8000_HZ : (u8, u8) = (DLPF_BW_256, 0);
+    pub const FREQUENCY_4000_HZ  : (u8, u8)= (DLPF_BW_256, 1);
+    pub const FREQUENCY_2667_HZ : (u8, u8) = (DLPF_BW_256, 2);
+    pub const FREQUENCY_2000_HZ : (u8, u8) = (DLPF_BW_256, 3);
+    pub const FREQUENCY_1600_HZ : (u8, u8) = (DLPF_BW_256, 4);
+    pub const FREQUENCY_1333_HZ : (u8, u8) = (DLPF_BW_256, 5);
+    pub const FREQUENCY_1143_HZ : (u8, u8) = (DLPF_BW_256, 6);
+    pub const FREQUENCY_1000_HZ : (u8, u8) = (DLPF_BW_256, 7);
+    pub const FREQUENCY_888_HZ : (u8, u8) = (DLPF_BW_256, 8);
+    pub const FREQUENCY_800_HZ : (u8, u8) = (DLPF_BW_256, 9);
+    pub const FREQUENCY_727_HZ : (u8, u8) = (DLPF_BW_256, 10);
+    pub const FREQUENCY_667_HZ : (u8, u8) = (DLPF_BW_256, 11);
+    pub const FREQUENCY_615_HZ : (u8, u8) = (DLPF_BW_256, 12);
+    pub const FREQUENCY_571_HZ : (u8, u8) = (DLPF_BW_256, 13);
+    pub const FREQUENCY_533_HZ : (u8, u8) = (DLPF_BW_256, 14);
+    pub const FREQUENCY_500_HZ : (u8, u8) = (DLPF_BW_256, 15);
+    pub const FREQUENCY_470_HZ : (u8, u8) = (DLPF_BW_256, 16);
+    pub const FREQUENCY_444_HZ : (u8, u8) = (DLPF_BW_256, 17);
+    pub const FREQUENCY_421_HZ : (u8, u8) = (DLPF_BW_256, 18);
+    pub const FREQUENCY_400_HZ : (u8, u8) = (DLPF_BW_256, 19);
+    pub const FREQUENCY_381_HZ : (u8, u8) = (DLPF_BW_256, 20);
+    pub const FREQUENCY_364_HZ : (u8, u8) = (DLPF_BW_256, 21);
+    pub const FREQUENCY_333_HZ : (u8, u8) = (DLPF_BW_188, 2);
+    pub const FREQUENCY_250_HZ : (u8, u8) = (DLPF_BW_188, 3);
+    pub const FREQUENCY_200_HZ : (u8, u8) = (DLPF_BW_188, 4);
+    pub const FREQUENCY_167_HZ : (u8, u8) = (DLPF_BW_98, 5);
+    pub const FREQUENCY_143_HZ : (u8, u8) = (DLPF_BW_98, 6);
+    pub const FREQUENCY_125_HZ : (u8, u8) = (DLPF_BW_98, 7);
+    pub const FREQUENCY_111_HZ : (u8, u8) = (DLPF_BW_98, 8);
+    pub const FREQUENCY_100_HZ : (u8, u8) = (DLPF_BW_98, 9);
+    pub const FREQUENCY_50_HZ : (u8, u8) = (DLPF_BW_42, 19);
+    pub const FREQUENCY_20_HZ : (u8, u8) = (DLPF_BW_10, 49);
+    pub const FREQUENCY_10_HZ : (u8, u8) = (DLPF_BW_5, 99);
+}
+
+
 /** Specific address constructor.
 * @param address I2C address
 * @see MPU9250_DEFAULT_ADDRESS
@@ -486,21 +525,54 @@ pub struct MPU9250 {
     pub i2c : I2c<std::fs::File>,
     pub calibration_file_path : String,
     pub calibration_data : MPU9250CalibrationData,
+    pub measure_accelerometer : bool,
+    pub measure_gyroscope : bool,
+    pub measure_magnetometer : bool,
+    fifo_sample_rate : (u8, u8),
+    fifo_enable_flags : u8,
+    frame_size : u16,
 }
+
 impl MPU9250 {
 
   pub fn default() -> Self {
-    Self::new(0x68, "/dev/i2c-1", "mpu9250.calib")
+    Self::new(None, None, None, None, None, None, None)
   }
-  pub fn new(dev_address : u16, i2c_bus_path : &str, calibration_file_path : &str) -> Self {
-    let mut i2c = I2c::from_path(i2c_bus_path).expect("Failed to open i2c bus");
-    i2c.smbus_set_slave_address(dev_address, false).expect("Failed to set i2c slave address");
+  pub fn new(
+    dev_address : Option<u16>,
+    i2c_bus_path : Option<&str>,
+    calibration_file_path : Option<&str>,
+    fifo_sample_rate : Option<(u8, u8)>,
+    measure_accelerometer : Option<bool>,
+    measure_gyroscope : Option<bool>,
+    measure_magnetometer : Option<bool>,
+  ) -> Self {
+    let mut i2c = I2c::from_path(i2c_bus_path.unwrap_or("/dev/i2c-1")).expect("Failed to open i2c bus");
+    i2c.smbus_set_slave_address(dev_address.unwrap_or(0x68), false).expect("Failed to set i2c slave address");
+    let mut fifo_enable_flags : u8 = 0;
+    if measure_accelerometer.unwrap_or(true) {
+        fifo_enable_flags |= 0b01000000;
+    }
+    if measure_gyroscope.unwrap_or(true) {
+        fifo_enable_flags |= 0b00111000;
+    }
+    if measure_magnetometer.unwrap_or(false) {
+        fifo_enable_flags |= 0b00000001;
+    }
+
+    let frame_size = Self::get_frame_size(fifo_enable_flags); 
 
     Self {
-        dev_address: dev_address,
+        dev_address: dev_address.unwrap_or(0x68),
         i2c: i2c,
-        calibration_file_path : String::from(calibration_file_path),
+        calibration_file_path : String::from(calibration_file_path.unwrap_or("mpu9250.calib")),
         calibration_data : MPU9250CalibrationData::default(),
+        fifo_sample_rate : fifo_sample_rate.unwrap_or(sample_rate::FREQUENCY_500_HZ),
+        measure_accelerometer : measure_accelerometer.unwrap_or(true),
+        measure_gyroscope : measure_gyroscope.unwrap_or(true),
+        measure_magnetometer : measure_magnetometer.unwrap_or(false),
+        fifo_enable_flags: fifo_enable_flags,
+        frame_size: frame_size,
     }
   }
 
@@ -517,15 +589,19 @@ impl MPU9250 {
     self.set_full_scale_gyro_range(GYRO_FS_250)?;
     self.set_full_scale_accel_range(ACCEL_FS_2)?;
     self.set_sleep_enabled(false)?;
-    self.set_i2c_master_mode_enabled(false)?;
-    self.set_i2c_bypass_enabled(true)?;
-    std::thread::sleep(std::time::Duration::from_millis(10));
-    self.set_magnetometer_enabled(true);
-    std::thread::sleep(std::time::Duration::from_millis(10));
+
+    if self.measure_magnetometer {
+        self.set_i2c_master_mode_enabled(false)?;
+        self.set_i2c_bypass_enabled(true)?;
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        self.set_magnetometer_enabled(true)?;
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        self.setup_magnetometer_as_slave0()?;
+    }
     if (Path::new(&self.calibration_file_path).exists()) {
-				// Open the file in read-only mode with buffer.
-				let file = File::open(&self.calibration_file_path)?;
-				// Read the JSON contents of the file as an instance of `User`.
+        // Open the file in read-only mode with buffer.
+        let file = File::open(&self.calibration_file_path)?;
+        // Read the JSON contents of the file as an instance of `User`.
         self.calibration_data = serde_json::from_reader(file).expect("JSON was not well-formatted");
     }
     else {
@@ -536,6 +612,7 @@ impl MPU9250 {
             serde_json::to_writer(file, &self.calibration_data).expect("Failed to write to calibration file.");
         }
     }
+    self.flush_fifo()?;
     Ok(())
   }
 
@@ -543,15 +620,19 @@ impl MPU9250 {
    * Store the results in self.calibration_file_path.
    */
   pub fn calibrate(&mut self) -> Result<MPU9250CalibrationData> {
-    let gyro_offset = calibrate::calibrate_gyroscope(self)?;
-    let accel_offset = calibrate::calibrate_accelerometer(self)?;
-    let (mag_offset, mag_scale) = calibrate::calibrate_magnetometer(self)?;
-    Ok(MPU9250CalibrationData {
-        gyro_offset: gyro_offset,
-        accel_offset: accel_offset,
-        mag_offset: mag_offset,
-        mag_scale: mag_scale,
-    })
+    let mut calibration_data = MPU9250CalibrationData::default();
+    if self.measure_accelerometer {
+        calibration_data.accel_offset = calibrate::calibrate_accelerometer(self)?;
+    }
+    if self.measure_gyroscope {
+        calibration_data.gyro_offset = calibrate::calibrate_gyroscope(self)?;
+    }
+    if self.measure_magnetometer {
+        let (mag_offset, mag_scale) = calibrate::calibrate_magnetometer(self)?;
+        calibration_data.mag_offset = mag_offset;
+        calibration_data.mag_scale = mag_scale;
+    }
+    Ok(calibration_data)
   }
 
   /** Verify the I2C connection.
@@ -627,7 +708,7 @@ impl MPU9250 {
    * @return Current sample rate
    * @see MPU9250_RA_SMPLRT_DIV
    */
-  pub fn get_rate(&mut self) -> Result<u8> {
+  pub fn get_rate_divider(&mut self) -> Result<u8> {
     i2c::read_byte(self.dev_address, RA_SMPLRT_DIV)
   }
 
@@ -636,7 +717,7 @@ impl MPU9250 {
    * @see getRate()
    * @see MPU9250_RA_SMPLRT_DIV
    */
-  pub fn set_rate(&mut self, rate : u8) -> Result<()> {
+  pub fn set_rate_divider(&mut self, rate : u8) -> Result<()> {
     i2c::write_byte(self.dev_address, RA_SMPLRT_DIV, rate)
   }
 
@@ -746,29 +827,15 @@ impl MPU9250 {
     i2c::write_bits(self.dev_address, RA_CONFIG, CFG_FIFO_MODE_BIT, CFG_FIFO_MODE_LENGTH, mode)
   }
 
-const NO_DLPF_FIFO_CLOCK_RATE : u16 = 8000;
-const DLPF_FIFO_CLOCK_RATE : u16 = 1000;
-/** Configure the MPU9250 FIFO rate with seinsible default filtering.
+/** Configure the MPU9250 FIFO rate with the given filtering and divider settings as a tuple
  * @param frequency The desired sampling frequency in Hz. 
  * Not all frequencies are possible we will pick a divider to get close to the requested frequency
  */
-pub fn set_fifo_rate(&mut self, frequency : u16) -> Result<()> {
+pub fn set_fifo_rate(&mut self, sample_rate : (u8, u8)) -> Result<()> {
+    let (dlpf_mode, rate_divider) = sample_rate;
     let mut rate = 0;
-    if rate > Self::DLPF_FIFO_CLOCK_RATE {
-        // This is probably ill advised. 
-        self.set_dlpf_mode(DLPF_BW_256)?;
-        rate = Self::NO_DLPF_FIFO_CLOCK_RATE / frequency;
-    }
-    else {
-        self.set_dlpf_mode(DLPF_BW_188)?;
-        rate = (Self::DLPF_FIFO_CLOCK_RATE / frequency) - 1;
-    }
-    if rate < 256 {
-        self.set_rate(rate.try_into().unwrap())?;
-    }
-    else {
-        self.set_rate(255)?;
-    }
+    self.set_dlpf_mode(dlpf_mode)?;
+    self.set_rate_divider(rate_divider)?;
     Ok(())
 }
 
@@ -1121,7 +1188,15 @@ pub fn set_fifo_rate(&mut self, frequency : u16) -> Result<()> {
 
 
   // FIFO_EN register
+
+  pub fn start_fifo(&mut self) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_FIFO_EN, self.fifo_enable_flags)
+  }
   
+  pub fn stop_fifo(&mut self) -> Result<()> {
+    i2c::write_byte(self.dev_address, RA_FIFO_EN, 0x0)
+  }
+
   /** Get all the fifo enabled flags.
    * @see MPU9250_RA_FIFO_EN
    */
@@ -1132,7 +1207,9 @@ pub fn set_fifo_rate(&mut self, frequency : u16) -> Result<()> {
   /** Set all the fifo enabled flags.
    * @see MPU9250_RA_FIFO_EN
    */
-  pub fn set_fifo_enabled_flags(&self, flags : u8) -> Result<()> {
+  pub fn set_fifo_enabled_flags(&mut self, flags : u8) -> Result<()> {
+    self.fifo_enable_flags = flags;
+    self.frame_size = Self::get_frame_size(flags);
     i2c::write_byte(self.dev_address, RA_FIFO_EN, flags)
   }
 
@@ -2247,9 +2324,9 @@ pub fn get_int_data_ready_status(&mut self) -> Result<u8> {
 pub fn accelerometer_data_to_measurement(&mut self, accelerometer_data : AccelerometerData) -> AccelerometerMeasurement {
   //TODO get full scale based on register settings
   AccelerometerMeasurement {
-    x: f32::from(accelerometer_data.x - self.calibration_data.accel_offset.x) / 32768.0 * 2.0,
-    y: f32::from(accelerometer_data.y - self.calibration_data.accel_offset.y) / 32768.0 * 2.0,
-    z: f32::from(accelerometer_data.z - self.calibration_data.accel_offset.z) / 32768.0 * 2.0,
+    x: (f32::from(accelerometer_data.x) - self.calibration_data.accel_offset.x) / 32768.0 * 2.0,
+    y: (f32::from(accelerometer_data.y) - self.calibration_data.accel_offset.y) / 32768.0 * 2.0,
+    z: (f32::from(accelerometer_data.z) - self.calibration_data.accel_offset.z) / 32768.0 * 2.0,
   }
 }
 
@@ -2259,9 +2336,9 @@ pub fn accelerometer_data_to_measurement(&mut self, accelerometer_data : Acceler
 pub fn gyroscope_data_to_measurement(&mut self, gyroscope_data : GyroscopeData) -> GyroscopeMeasurement {
   //TODO get full scale based on register settings
   GyroscopeMeasurement {
-    x: f32::from(gyroscope_data.x - self.calibration_data.gyro_offset.x) / 32768.0 * 250.0,
-    y: f32::from(gyroscope_data.y - self.calibration_data.gyro_offset.y) / 32768.0 * 250.0,
-    z: f32::from(gyroscope_data.z - self.calibration_data.gyro_offset.z) / 32768.0 * 250.0,
+    x: (f32::from(gyroscope_data.x) - self.calibration_data.gyro_offset.x) / 32768.0 * 250.0,
+    y: (f32::from(gyroscope_data.y) - self.calibration_data.gyro_offset.y) / 32768.0 * 250.0,
+    z: (f32::from(gyroscope_data.z) - self.calibration_data.gyro_offset.z) / 32768.0 * 250.0,
   }
 }
 
@@ -2271,9 +2348,9 @@ pub fn gyroscope_data_to_measurement(&mut self, gyroscope_data : GyroscopeData) 
 pub fn magnetometer_data_to_measurement(&mut self, magnetometer_data : MagnetometerData) -> MagnetometerMeasurement {
   //TODO get full scale based on register settings
   MagnetometerMeasurement {
-    x: f32::from(magnetometer_data.x - self.calibration_data.mag_offset.x) * self.calibration_data.mag_scale.x * 0.6,
-    y: f32::from(magnetometer_data.y - self.calibration_data.mag_offset.y) * self.calibration_data.mag_scale.y * 0.6,
-    z: f32::from(magnetometer_data.z - self.calibration_data.mag_offset.z) * self.calibration_data.mag_scale.z * 0.6,
+    x: (f32::from(magnetometer_data.x) - self.calibration_data.mag_offset.x) * self.calibration_data.mag_scale.x * 0.6,
+    y: (f32::from(magnetometer_data.y) - self.calibration_data.mag_offset.y) * self.calibration_data.mag_scale.y * 0.6,
+    z: (f32::from(magnetometer_data.z) - self.calibration_data.mag_offset.z) * self.calibration_data.mag_scale.z * 0.6,
   }
 }
 
@@ -3368,7 +3445,7 @@ pub fn flush_fifo(&mut self) -> Result<()> {
     Ok(())
 }
 
-pub fn get_frame_size(fifo_enable_flags : u8) -> u16 {
+fn get_frame_size(fifo_enable_flags : u8) -> u16 {
     let mut frame_size = 0;
     if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
        frame_size += 6;
@@ -3385,10 +3462,10 @@ pub fn get_frame_size(fifo_enable_flags : u8) -> u16 {
     if ((fifo_enable_flags & (0x1 << SLV0_FIFO_EN_BIT)) != 0) {
        frame_size += 8;
     }
-		frame_size
+    frame_size
 }
 
-pub fn get_fifo_data(&mut self, data: &mut [u8], frame_size : u16) -> Result<usize> {
+pub fn get_fifo_data(&mut self, data: &mut [u8]) -> Result<usize> {
     let mut fifo_count = self.get_fifo_count()?;
     if fifo_count == 0 {
         return Ok(fifo_count as usize);
@@ -3398,7 +3475,7 @@ pub fn get_fifo_data(&mut self, data: &mut [u8], frame_size : u16) -> Result<usi
     }
     // Always empty the FIFO. But only return the number of bytes that form valid frames
     // TODO return special type to warn if a partial frame was cleared from fifo
-    let valid_bytes = fifo_count - (fifo_count % frame_size);
+    let valid_bytes = fifo_count - (fifo_count % self.frame_size);
     let mut messages = [
         Message::Write {
             address: self.dev_address,
@@ -3422,14 +3499,13 @@ pub fn parse_fifo_data(
     gyro_data: &mut[GyroscopeData],
     mag_data: &mut[MagnetometerData],
     data_count : usize,
-    fifo_enable_flags : u8,
 ) -> Result<usize> {
     let mut index : usize = 0;
     let mut accel_index : usize = 0;
     let mut gyro_index : usize = 0;
     let mut mag_index : usize = 0;
     const PARSABLE_FLAGS : u8 = 0b01111001;
-    if (fifo_enable_flags & PARSABLE_FLAGS) == 0 {
+    if (self.fifo_enable_flags & PARSABLE_FLAGS) == 0 {
         return Err(anyhow!("No parsible data"))
     }
     let mut accel_x = 0;
@@ -3443,7 +3519,7 @@ pub fn parse_fifo_data(
     let mut mag_z = 0;
     let mut frame_count = 0;
     while index < data_count {
-        if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
+        if ((self.fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
            if data_count - index < 6 {
                 return Ok(frame_count);
            }
@@ -3460,28 +3536,28 @@ pub fn parse_fifo_data(
            };
            accel_index += 1;
         }
-        if ((fifo_enable_flags & (0x1 << XG_FIFO_EN_BIT)) != 0) {
+        if ((self.fifo_enable_flags & (0x1 << XG_FIFO_EN_BIT)) != 0) {
            if data_count - index < 2 {
                 return Ok(frame_count);
            }
            gyro_x = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
         }
-        if ((fifo_enable_flags & (0x1 << YG_FIFO_EN_BIT)) != 0) {
+        if ((self.fifo_enable_flags & (0x1 << YG_FIFO_EN_BIT)) != 0) {
            if data_count - index < 2 {
                 return Ok(frame_count);
            }
            gyro_y = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
         }
-        if ((fifo_enable_flags & (0x1 << ZG_FIFO_EN_BIT)) != 0) {
+        if ((self.fifo_enable_flags & (0x1 << ZG_FIFO_EN_BIT)) != 0) {
            if data_count - index < 2 {
                 return Ok(frame_count);
            }
            gyro_z = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
         }
-        if ((fifo_enable_flags & ((0x1 << XG_FIFO_EN_BIT) | (0x1 << YG_FIFO_EN_BIT) | (0x1 << ZG_FIFO_EN_BIT))) != 0) {
+        if ((self.fifo_enable_flags & ((0x1 << XG_FIFO_EN_BIT) | (0x1 << YG_FIFO_EN_BIT) | (0x1 << ZG_FIFO_EN_BIT))) != 0) {
            gyro_data[gyro_index] = GyroscopeData {
              x: gyro_x,
              y: gyro_y,
@@ -3489,7 +3565,7 @@ pub fn parse_fifo_data(
            };
            gyro_index += 1;
         }
-        if ((fifo_enable_flags & (0x1 << SLV0_FIFO_EN_BIT)) != 0) {
+        if ((self.fifo_enable_flags & (0x1 << SLV0_FIFO_EN_BIT)) != 0) {
            if data_count - index < 8 {
                 return Ok(frame_count);
            }
@@ -3520,15 +3596,13 @@ pub fn get_fifo_measurements(
     accel_meas: &mut [AccelerometerMeasurement],
     gyro_meas: &mut [GyroscopeMeasurement],
     mag_meas: &mut [MagnetometerMeasurement],
-    fifo_enabled_flags : u8,
 ) -> Result<usize> {
     let mut data = [0u8; FIFO_SIZE as usize];
     let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
     let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
     let mut mag_data = [MagnetometerData { x: 0, y : 0, z: 0}; 50];
-		let frame_size = Self::get_frame_size(fifo_enabled_flags);
-    let data_count = self.get_fifo_data(&mut data, frame_size)?;
-    let frame_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count, fifo_enabled_flags)?;
+    let data_count = self.get_fifo_data(&mut data)?;
+    let frame_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count)?;
     for frame_index in 0..frame_count {
         accel_meas[frame_index] = self.accelerometer_data_to_measurement(accel_data[frame_index]);
         gyro_meas[frame_index] = self.gyroscope_data_to_measurement(gyro_data[frame_index]);
