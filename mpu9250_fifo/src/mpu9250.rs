@@ -60,6 +60,8 @@ pub mod mpu9150 {
     pub const RA_MAG_ZOUT_H        : u8 = 0x08;
 
 }
+const FRAME_SIZE : u16 = 20; //number of bytes in one set of data TODO depedent on fifo configuration
+const FIFO_SIZE : u16 = 512; //number of bytes the FIFO holds
 const I2C_BLOCK_SIZE    : usize = 32; // number of bytes one i2c block can transfer
 const ADDRESS_AD0_LOW    : u16 = 0x68; // address pin low (GND), default for InvenSense evaluation board
 const ADDRESS_AD0_HIGH   : u16 = 0x69; // address pin high (VCC)
@@ -752,9 +754,6 @@ const DLPF_FIFO_CLOCK_RATE : u16 = 1000;
  * Not all frequencies are possible we will pick a divider to get close to the requested frequency
  */
 pub fn set_fifo_rate(&mut self, frequency : u16) -> Result<()> {
-    // If fifo overflows its difficult to map bytes to their correct axis of measurement
-    // Better to configure so we keep valid but stale data
-    self.set_fifo_mode(1u8);
     let mut rate = 0;
     if rate > Self::DLPF_FIFO_CLOCK_RATE {
         // This is probably ill advised. 
@@ -3350,19 +3349,8 @@ pub fn flush_fifo(&mut self) -> Result<()> {
     let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
     // Stop data from being added to the FIFO
     self.set_fifo_enabled_flags(0x0)?;
-    // Read 512 bytes to empty the fifo
-    let mut data = [0u8; 512];
-    self.get_fifo_data(&mut data)?;
-    // Restore the original fifo enabled flags
-    self.set_fifo_enabled_flags(fifo_en_setting)?;
-    Ok(())
-}
-
-pub fn get_fifo_data(&mut self, data: &mut [u8]) -> Result<usize> {
-    let mut fifo_count = self.get_fifo_count()?;
-    if fifo_count == 0 {
-        return Ok(fifo_count as usize);
-    }
+    // Read all bytes to empty the fifo
+    let mut data = [0u8; FIFO_SIZE as usize];
     let mut messages = [
         Message::Write {
             address: self.dev_address,
@@ -3371,12 +3359,41 @@ pub fn get_fifo_data(&mut self, data: &mut [u8]) -> Result<usize> {
         },
         Message::Read {
             address: self.dev_address,
-            data: &mut data[0..fifo_count as usize],
+            data: &mut data,
             flags: ReadFlags::empty(),
         },
     ];
     self.i2c.i2c_transfer(&mut messages);
-    Ok(fifo_count as usize)
+    // Restore the original fifo enabled flags
+    self.set_fifo_enabled_flags(fifo_en_setting)?;
+    Ok(())
+}
+
+pub fn get_fifo_data(&mut self, data: &mut [u8], frame_size : u16) -> Result<usize> {
+    let mut fifo_count = self.get_fifo_count()?;
+    if fifo_count == 0 {
+        return Ok(fifo_count as usize);
+    }
+    if fifo_count == FIFO_SIZE {
+        return Err(anyhow!("FIFO Overflow"));
+    }
+    // Always empty the FIFO. But only return the number of bytes that form valid frames
+    // TODO return special type to warn if a partial frame was cleared from fifo
+    let valid_bytes = fifo_count - (fifo_count % frame_size);
+    let mut messages = [
+        Message::Write {
+            address: self.dev_address,
+            data: &[RA_FIFO_R_W],
+            flags: WriteFlags::empty(),
+        },
+        Message::Read {
+            address: self.dev_address,
+            data: &mut data[0..valid_bytes as usize],
+            flags: ReadFlags::empty(),
+        },
+    ];
+    self.i2c.i2c_transfer(&mut messages);
+    Ok(valid_bytes as usize)
 }
 
 pub fn parse_fifo_data(
@@ -3409,7 +3426,7 @@ pub fn parse_fifo_data(
     while index < data_count {
         if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
            if data_count - index < 6 {
-                return Ok(data_count-index);
+                return Ok(frame_count);
            }
            accel_x = (((data[index] as i16) << 8) | data[index+1] as i16);
            index += 2;
@@ -3455,9 +3472,9 @@ pub fn parse_fifo_data(
         }
         if ((fifo_enable_flags & (0x1 << SLV0_FIFO_EN_BIT)) != 0) {
            if data_count - index < 8 {
-                return Ok(data_count-index);
+                return Ok(frame_count);
            }
-           let _mag_status_2 = data[index];
+           let _mag_status_1 = data[index];
            index += 1;
            mag_x = (((data[index+1] as i16) << 8) | data[index] as i16);
            index += 2;
@@ -3486,11 +3503,11 @@ pub fn get_fifo_measurements(
     mag_meas: &mut [MagnetometerMeasurement],
     fifo_enabled_flags : u8,
 ) -> Result<usize> {
-    let mut data = [0u8; 512];
+    let mut data = [0u8; FIFO_SIZE as usize];
     let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
     let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
     let mut mag_data = [MagnetometerData { x: 0, y : 0, z: 0}; 50];
-    let data_count = self.get_fifo_data(&mut data)?;
+    let data_count = self.get_fifo_data(&mut data, FRAME_SIZE)?;
     let frame_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count, fifo_enabled_flags)?;
     for frame_index in 0..frame_count {
         accel_meas[frame_index] = self.accelerometer_data_to_measurement(accel_data[frame_index]);

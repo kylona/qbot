@@ -5,24 +5,33 @@ use ahrs::{Ahrs, Madgwick};
 use nalgebra::Vector3;
 use std::f64;
 
-const DATA_RATE : u16 = 500;
+const DATA_RATE : u16 = 250;
 
 fn main() {
+    let mut accel_meas = [AccelerometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
+    let mut gyro_meas = [GyroscopeMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
+    let mut mag_meas = [MagnetometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
+
     // Initialize filter with default values
     let mut ahrs = Madgwick::new(1.0/f64::from(DATA_RATE), 0.1);
 
     let mut mpu9250 = MPU9250::default();
     mpu9250.initialize().expect("Failed to initialize mpu9250");
-    let mut accel_meas = [AccelerometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
-    let mut gyro_meas = [GyroscopeMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
-    let mut mag_meas = [MagnetometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
     mpu9250.set_fifo_enabled(true).expect("Fifo enable failed");
     mpu9250.set_fifo_rate(u16::from(DATA_RATE)).expect("Set fifo rate failed");
     let fifo_enabled_flags : u8 = 0b01111001;
     mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
     mpu9250.flush_fifo().expect("Flush fifo failed");
+    mpu9250.setup_magnetometer_as_slave0().expect("SETTING UP MAGNETOMETER AS SLAVE FAILED");
     loop {
-        let data_count = mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas, fifo_enabled_flags).expect("Fetch fifo data failed");
+        let data_count = match mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas, fifo_enabled_flags) {
+            Ok(count) => count,
+            Err(_) => {
+                println!("FIFO Overflow detected");
+                mpu9250.flush_fifo();
+                continue;
+            }
+        };
         //let (accel_meas_datum, gyro_meas_datum, mag_meas_datum) = mpu9250.measure_motion_9().expect("Could not connect to mpu9250");
         //println!("Measured Data:");
         //println!("Accel: {:?}", accel_meas_datum);
@@ -49,7 +58,6 @@ fn main() {
                 }
             };
         }
-        std::thread::sleep(std::time::Duration::from_millis(100));
         let (roll, pitch, yaw) = quat.euler_angles();
         println!("Mag: {:?}", mag_meas[0]);
         // Do something with the updated state quaternion
