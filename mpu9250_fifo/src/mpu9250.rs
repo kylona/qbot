@@ -459,17 +459,17 @@ pub struct MagnetometerMeasurement {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MPU9250CalibrationData {
-    pub accel_offset : AccelerometerData,
-    pub gyro_offset : GyroscopeData,
-    pub mag_offset : MagnetometerData,
+    pub accel_offset : AccelerometerMeasurement,
+    pub gyro_offset : GyroscopeMeasurement,
+    pub mag_offset : MagnetometerMeasurement,
     pub mag_scale : MagnetometerMeasurement,
 }
 impl MPU9250CalibrationData {
     pub fn default() -> Self {
        Self {
-        accel_offset: AccelerometerData {x: 0, y: 0, z: 0},
-        gyro_offset: GyroscopeData {x: 0, y: 0, z: 0},
-        mag_offset: MagnetometerData {x: 0, y: 0, z: 0},
+        accel_offset: AccelerometerMeasurement {x: 0.0, y: 0.0, z: 0.0},
+        gyro_offset: GyroscopeMeasurement {x: 0.0, y: 0.0, z: 0.0},
+        mag_offset: MagnetometerMeasurement {x: 0.0, y: 0.0, z: 0.0},
         mag_scale: MagnetometerMeasurement {x: 1.0, y: 1.0, z: 1.0},
        }
     }

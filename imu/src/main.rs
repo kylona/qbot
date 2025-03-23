@@ -4,8 +4,10 @@ use mpu9250_fifo::mpu9250::{AccelerometerMeasurement, GyroscopeMeasurement, Magn
 use ahrs::{Ahrs, Madgwick};
 use nalgebra::Vector3;
 use std::f64;
+use std::io::Write;
+use std::io::stdout;
 
-const DATA_RATE : u16 = 250;
+const DATA_RATE : u16 = 500;
 
 fn main() {
     let mut accel_meas = [AccelerometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
@@ -19,7 +21,7 @@ fn main() {
     mpu9250.initialize().expect("Failed to initialize mpu9250");
     mpu9250.set_fifo_enabled(true).expect("Fifo enable failed");
     mpu9250.set_fifo_rate(u16::from(DATA_RATE)).expect("Set fifo rate failed");
-    let fifo_enabled_flags : u8 = 0b01111001;
+    let fifo_enabled_flags : u8 = 0b01111000;
     mpu9250.set_fifo_enabled_flags(fifo_enabled_flags).expect("Setting fifo enable flags failed");
     mpu9250.flush_fifo().expect("Flush fifo failed");
     mpu9250.setup_magnetometer_as_slave0().expect("SETTING UP MAGNETOMETER AS SLAVE FAILED");
@@ -28,7 +30,7 @@ fn main() {
             Ok(count) => count,
             Err(_) => {
                 println!("FIFO Overflow detected");
-                mpu9250.flush_fifo();
+                mpu9250.flush_fifo().expect("FIFO Flush after overflow failed");
                 continue;
             }
         };
@@ -44,13 +46,13 @@ fn main() {
             // Obtain sensor values from a source
             let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, gyro_meas[i].z as f64);
             let accelerometer = Vector3::new(accel_meas[i].x as f64, accel_meas[i].y as f64, accel_meas[i].z as f64);
-            let magnetometer = Vector3::new(mag_meas[i].x as f64, mag_meas[i].y as f64, mag_meas[i].z as f64);
+            //let magnetometer = Vector3::new(mag_meas[i].x as f64, mag_meas[i].y as f64, mag_meas[i].z as f64);
 
             // Run inputs through AHRS filter (gyroscope must be radians/s)
-            quat = match ahrs.update(
+            quat = match ahrs.update_imu(
                 &(gyroscope * (f64::consts::PI / 180.0)),
                 &accelerometer,
-                &magnetometer,
+                //&magnetometer,
             ) {
                 Ok(val) => *val,
                 Err(_) => {
@@ -58,9 +60,10 @@ fn main() {
                 }
             };
         }
+        std::thread::sleep(std::time::Duration::from_millis(10));
         let (roll, pitch, yaw) = quat.euler_angles();
-        println!("Mag: {:?}", mag_meas[0]);
         // Do something with the updated state quaternion
-        println!("pitch={}, roll={}, yaw={}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
+        print!("pitch={:0.5}, roll={:0.5}, yaw={:0.5}\r", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
+        stdout().flush();
     }
 }
