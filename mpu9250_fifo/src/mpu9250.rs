@@ -60,7 +60,6 @@ pub mod mpu9150 {
     pub const RA_MAG_ZOUT_H        : u8 = 0x08;
 
 }
-const FRAME_SIZE : u16 = 20; //number of bytes in one set of data TODO depedent on fifo configuration
 const FIFO_SIZE : u16 = 512; //number of bytes the FIFO holds
 const I2C_BLOCK_SIZE    : usize = 32; // number of bytes one i2c block can transfer
 const ADDRESS_AD0_LOW    : u16 = 0x68; // address pin low (GND), default for InvenSense evaluation board
@@ -527,7 +526,7 @@ impl MPU9250 {
 				// Open the file in read-only mode with buffer.
 				let file = File::open(&self.calibration_file_path)?;
 				// Read the JSON contents of the file as an instance of `User`.
-        let calibration_data: MPU9250CalibrationData = serde_json::from_reader(file).expect("JSON was not well-formatted");
+        self.calibration_data = serde_json::from_reader(file).expect("JSON was not well-formatted");
     }
     else {
         let calibrate = prompt_yes_no("No calibration file found. Calibrate now? [y/n]")?;
@@ -3369,6 +3368,26 @@ pub fn flush_fifo(&mut self) -> Result<()> {
     Ok(())
 }
 
+pub fn get_frame_size(fifo_enable_flags : u8) -> u16 {
+    let mut frame_size = 0;
+    if ((fifo_enable_flags & (0x1 << ACCEL_FIFO_EN_BIT)) != 0) {
+       frame_size += 6;
+    }
+    if ((fifo_enable_flags & (0x1 << XG_FIFO_EN_BIT)) != 0) {
+       frame_size += 2;
+    }
+    if ((fifo_enable_flags & (0x1 << YG_FIFO_EN_BIT)) != 0) {
+       frame_size += 2;
+    }
+    if ((fifo_enable_flags & (0x1 << ZG_FIFO_EN_BIT)) != 0) {
+       frame_size += 2;
+    }
+    if ((fifo_enable_flags & (0x1 << SLV0_FIFO_EN_BIT)) != 0) {
+       frame_size += 8;
+    }
+		frame_size
+}
+
 pub fn get_fifo_data(&mut self, data: &mut [u8], frame_size : u16) -> Result<usize> {
     let mut fifo_count = self.get_fifo_count()?;
     if fifo_count == 0 {
@@ -3507,7 +3526,8 @@ pub fn get_fifo_measurements(
     let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
     let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
     let mut mag_data = [MagnetometerData { x: 0, y : 0, z: 0}; 50];
-    let data_count = self.get_fifo_data(&mut data, FRAME_SIZE)?;
+		let frame_size = Self::get_frame_size(fifo_enabled_flags);
+    let data_count = self.get_fifo_data(&mut data, frame_size)?;
     let frame_count = self.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count, fifo_enabled_flags)?;
     for frame_index in 0..frame_count {
         accel_meas[frame_index] = self.accelerometer_data_to_measurement(accel_data[frame_index]);
