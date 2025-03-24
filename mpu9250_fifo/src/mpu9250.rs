@@ -478,28 +478,9 @@ impl MPU9250CalibrationData {
 pub mod sample_rate {
     use super::{DLPF_BW_256, DLPF_BW_188, DLPF_BW_98, DLPF_BW_42, DLPF_BW_10, DLPF_BW_5};
 
-    pub const FREQUENCY_8000_HZ : (u8, u8) = (DLPF_BW_256, 0);
-    pub const FREQUENCY_4000_HZ  : (u8, u8)= (DLPF_BW_256, 1);
-    pub const FREQUENCY_2667_HZ : (u8, u8) = (DLPF_BW_256, 2);
-    pub const FREQUENCY_2000_HZ : (u8, u8) = (DLPF_BW_256, 3);
-    pub const FREQUENCY_1600_HZ : (u8, u8) = (DLPF_BW_256, 4);
-    pub const FREQUENCY_1333_HZ : (u8, u8) = (DLPF_BW_256, 5);
-    pub const FREQUENCY_1143_HZ : (u8, u8) = (DLPF_BW_256, 6);
-    pub const FREQUENCY_1000_HZ : (u8, u8) = (DLPF_BW_256, 7);
-    pub const FREQUENCY_888_HZ : (u8, u8) = (DLPF_BW_256, 8);
-    pub const FREQUENCY_800_HZ : (u8, u8) = (DLPF_BW_256, 9);
-    pub const FREQUENCY_727_HZ : (u8, u8) = (DLPF_BW_256, 10);
-    pub const FREQUENCY_667_HZ : (u8, u8) = (DLPF_BW_256, 11);
-    pub const FREQUENCY_615_HZ : (u8, u8) = (DLPF_BW_256, 12);
-    pub const FREQUENCY_571_HZ : (u8, u8) = (DLPF_BW_256, 13);
-    pub const FREQUENCY_533_HZ : (u8, u8) = (DLPF_BW_256, 14);
-    pub const FREQUENCY_500_HZ : (u8, u8) = (DLPF_BW_256, 15);
-    pub const FREQUENCY_470_HZ : (u8, u8) = (DLPF_BW_256, 16);
-    pub const FREQUENCY_444_HZ : (u8, u8) = (DLPF_BW_256, 17);
-    pub const FREQUENCY_421_HZ : (u8, u8) = (DLPF_BW_256, 18);
-    pub const FREQUENCY_400_HZ : (u8, u8) = (DLPF_BW_256, 19);
-    pub const FREQUENCY_381_HZ : (u8, u8) = (DLPF_BW_256, 20);
-    pub const FREQUENCY_364_HZ : (u8, u8) = (DLPF_BW_256, 21);
+    // TODO FIGURE OUT OTHER DLPF MODES 
+    pub const FREQUENCY_1000_HZ : (u8, u8) = (DLPF_BW_188, 0);
+    pub const FREQUENCY_500_HZ : (u8, u8) = (DLPF_BW_188, 1);
     pub const FREQUENCY_333_HZ : (u8, u8) = (DLPF_BW_188, 2);
     pub const FREQUENCY_250_HZ : (u8, u8) = (DLPF_BW_188, 3);
     pub const FREQUENCY_200_HZ : (u8, u8) = (DLPF_BW_188, 4);
@@ -556,7 +537,7 @@ impl MPU9250 {
     if measure_gyroscope.unwrap_or(true) {
         fifo_enable_flags |= 0b00111000;
     }
-    if measure_magnetometer.unwrap_or(false) {
+    if measure_magnetometer.unwrap_or(true) {
         fifo_enable_flags |= 0b00000001;
     }
 
@@ -570,7 +551,7 @@ impl MPU9250 {
         fifo_sample_rate : fifo_sample_rate.unwrap_or(sample_rate::FREQUENCY_500_HZ),
         measure_accelerometer : measure_accelerometer.unwrap_or(true),
         measure_gyroscope : measure_gyroscope.unwrap_or(true),
-        measure_magnetometer : measure_magnetometer.unwrap_or(false),
+        measure_magnetometer : measure_magnetometer.unwrap_or(true),
         fifo_enable_flags: fifo_enable_flags,
         frame_size: frame_size,
     }
@@ -598,6 +579,9 @@ impl MPU9250 {
         std::thread::sleep(std::time::Duration::from_millis(10));
         self.setup_magnetometer_as_slave0()?;
     }
+    self.set_fifo_enabled(true)?;
+    self.flush_fifo()?;
+    self.set_fifo_rate(self.fifo_sample_rate)?;
     if (Path::new(&self.calibration_file_path).exists()) {
         // Open the file in read-only mode with buffer.
         let file = File::open(&self.calibration_file_path)?;
@@ -612,7 +596,6 @@ impl MPU9250 {
             serde_json::to_writer(file, &self.calibration_data).expect("Failed to write to calibration file.");
         }
     }
-    self.flush_fifo()?;
     Ok(())
   }
 
@@ -2409,6 +2392,12 @@ pub fn get_motion_6(&mut self) -> Result<(AccelerometerData, GyroscopeData)> {
 }
 
 pub fn get_magnetometer_data(&mut self) -> Result<MagnetometerData> {
+    // Setup to bypass internal connection to magnetometer
+    self.set_i2c_master_mode_enabled(false)?;
+    self.set_i2c_bypass_enabled(true)?;
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    self.set_magnetometer_enabled(true)?;
+    std::thread::sleep(std::time::Duration::from_millis(10));
     //read mag
     let mut buffer = [0; 7];
     //Must read 7 bytes to read the status 2 register to unlatch values
@@ -3424,7 +3413,7 @@ pub fn flush_fifo(&mut self) -> Result<()> {
     // Remember their fifo enabled flags
     let mut fifo_en_setting = i2c::read_byte(self.dev_address, RA_FIFO_EN)?;
     // Stop data from being added to the FIFO
-    self.set_fifo_enabled_flags(0x0)?;
+    i2c::write_byte(self.dev_address, RA_FIFO_EN, 0x0);
     // Read all bytes to empty the fifo
     let mut data = [0u8; FIFO_SIZE as usize];
     let mut messages = [
@@ -3441,7 +3430,7 @@ pub fn flush_fifo(&mut self) -> Result<()> {
     ];
     self.i2c.i2c_transfer(&mut messages);
     // Restore the original fifo enabled flags
-    self.set_fifo_enabled_flags(fifo_en_setting)?;
+    i2c::write_byte(self.dev_address, RA_FIFO_EN, fifo_en_setting);
     Ok(())
 }
 

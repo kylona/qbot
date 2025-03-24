@@ -58,7 +58,15 @@ mod tests {
 
     #[test]
     fn test_fifo_motion_6() {
-        let mut mpu9250 = MPU9250::default();
+        let mut mpu9250 = MPU9250::new(
+            None,
+            None,
+            None,
+            None,
+            Some(true),
+            Some(true),
+            Some(false),
+        );
         let mut data = [0u8; 512];
         let mut accel_data = [AccelerometerData { x: 0, y : 0, z: 0}; 86];
         let mut gyro_data = [GyroscopeData { x: 0, y : 0, z: 0}; 50];
@@ -67,16 +75,16 @@ mod tests {
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         for _ in 0..100 {
             assert!(mpu9250.start_fifo().is_ok(), "Start FIFO failed");
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(10));
             assert!(mpu9250.stop_fifo().is_ok(), "Start FIFO failed");
             let data_count = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
-            let frame_count = mpu9250.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count).expect("Parse data failed");
             println!("DATA COUNT: {}", data_count);
+            let frame_count = mpu9250.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count).expect("Parse data failed");
             println!("FRAME COUNT: {}", frame_count);
+            assert!(4 <= frame_count && frame_count <= 6, "Sample Frequency Incorrect");
             println!("PARSED ACCEL DATA: {:?}", accel_data[0]);
             println!("PARSED GYRO DATA: {:?}", gyro_data[0]);
         }
-        mpu9250.set_fifo_enabled_flags(0x0).expect("Reseting fifo enable flags failed");
     }
 
     #[test]
@@ -98,17 +106,17 @@ mod tests {
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
         for _ in 0..100 {
             assert!(mpu9250.start_fifo().is_ok(), "Start FIFO failed");
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(50));
             assert!(mpu9250.stop_fifo().is_ok(), "Start FIFO failed");
             let data_count = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
             let frame_count = mpu9250.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count).expect("Parse data failed");
+            assert!(4 <= frame_count && frame_count <= 6, "Sample Frequency Incorrect");
             println!("DATA COUNT: {}", data_count);
             println!("FRAME COUNT: {}", frame_count);
             println!("PARSED ACCEL DATA: {:?}", accel_data[0]);
             println!("PARSED GYRO DATA: {:?}", gyro_data[0]);
             println!("PARSED GYRO DATA: {:?}", mag_data[0]);
         }
-        mpu9250.set_fifo_enabled_flags(0x0).expect("Reseting fifo enable flags failed");
     }
 
     #[test]
@@ -121,13 +129,16 @@ mod tests {
             None,
             None,
             None,
-            Some(sample_rate::FREQUENCY_100_HZ),
+            Some(sample_rate::FREQUENCY_200_HZ),
             Some(true),
             Some(true),
             Some(true),
         );
         mpu9250.initialize().expect("Failed to initialize mpu9250");
         for _ in 0..5 {
+            mpu9250.start_fifo().expect("Start fifo failed");
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            mpu9250.stop_fifo().expect("Stop fifo failed");
             let frame_count = match mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas) {
                 Ok(count) => count,
                 Err(_) => {
@@ -136,13 +147,13 @@ mod tests {
                     continue;
                 }
             };
+            assert!(4 <= frame_count && frame_count <= 6, "Sample Frequency Incorrect");
             println!("FRAME COUNT: {}", frame_count);
             for i in 0..frame_count {
                 println!("Accel: {:?}", accel_meas[i]);
                 println!("Gyro: {:?}", gyro_meas[i]);
                 println!("Mag: {:?}", mag_meas[i]);
             }
-            std::thread::sleep(std::time::Duration::from_millis(500));
         }
     }
 
@@ -157,7 +168,7 @@ mod tests {
             None,
             None,
             None,
-            Some(sample_rate::FREQUENCY_100_HZ),
+            Some(sample_rate::FREQUENCY_1000_HZ),
             Some(false),
             Some(false),
             Some(true),
@@ -165,15 +176,15 @@ mod tests {
         mpu9250.initialize().expect("Failed to initialize mpu9250");
         for _ in 0..100 {
             assert!(mpu9250.start_fifo().is_ok(), "Start FIFO failed");
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(10));
             assert!(mpu9250.stop_fifo().is_ok(), "Start FIFO failed");
             let data_count = mpu9250.get_fifo_data(&mut data).expect("Fifo block read failed");
             let frame_count = mpu9250.parse_fifo_data(&data, &mut accel_data, &mut gyro_data, &mut mag_data, data_count).expect("Parse data failed");
             println!("DATA COUNT: {}", data_count);
             println!("FRAME_COUNT: {}", frame_count);
             println!("PARSED MAG DATA: {:?}", mag_data[0]);
+            assert!(9 <= frame_count && frame_count <= 11, "Sample Frequency Incorrect");
         }
-        mpu9250.set_fifo_enabled_flags(0x0).expect("Reseting fifo enable flags failed");
     }
 
     #[test]
@@ -188,7 +199,6 @@ mod tests {
         assert!(read_byte(0x68, 0x3F).is_ok(), "Read byte failed")
     }
 
-    #[test]
     fn test_calibrate() {
         let mut mpu9250 = MPU9250::default();
         assert!(mpu9250.initialize().is_ok(), "Initialize failed");
