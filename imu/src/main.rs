@@ -14,7 +14,15 @@ fn main() {
 
     // Initialize filter with default values
     let mut ahrs = Madgwick::new(1.0/f64::from(500), 0.1);
-    let mut mpu9250 = MPU9250::default();
+    let mut mpu9250 = MPU9250::new(
+        None,
+        None,
+        None,
+        None,
+        Some(true),
+        Some(true),
+        Some(false),
+    );
     mpu9250.initialize().expect("Failed to initialize mpu9250");
     mpu9250.start_fifo().expect("Failed to start FIFO");
     loop {
