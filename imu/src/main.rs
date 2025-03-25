@@ -40,7 +40,7 @@ pub mod simpsons {
             if accel_meas.len() < 3 {
                 let mut sum = 0.0;
                 for i in (0..accel_meas.len()).step_by(2) {
-                    sum += accel_meas[i];
+                    sum += accel_meas[i].x;
                 }
                 self.current_sum += divisor * sum;
                 return self.current_sum;
@@ -49,7 +49,7 @@ pub mod simpsons {
                 // If we have an even number of points
                 first = accel_meas[0].x;
                 last = accel_meas[accel_meas.len() - 1].x;
-                for i in (1..accel_meas.len()).step_by(2) {
+                for i in (1..accel_meas.len()-1).step_by(2) {
                     odd_sum += accel_meas[i].x;
                     even_sum += accel_meas[i+1].x;
                 }
@@ -59,7 +59,7 @@ pub mod simpsons {
                     Some(measure) => {
                         first = measure.x;
                         last = accel_meas[accel_meas.len() - 1].x;
-                        for i in (1..accel_meas.len()).step_by(2) {
+                        for i in (1..accel_meas.len()-1).step_by(2) {
                             odd_sum += accel_meas[i].x;
                             even_sum += accel_meas[i+1].x;
                         }
@@ -68,7 +68,7 @@ pub mod simpsons {
                     None => {
                         first = accel_meas[0].x;
                         last = accel_meas[accel_meas.len() - 2].x;
-                        for i in (1..(accel_meas.len()-1)).step_by(2) {
+                        for i in (1..(accel_meas.len()-2)).step_by(2) {
                             odd_sum += accel_meas[i].x;
                             even_sum += accel_meas[i+1].x;
                         }
