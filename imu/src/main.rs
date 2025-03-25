@@ -1,91 +1,15 @@
 extern crate mpu9250_fifo;
+pub mod simpsons;
+use crate::simpsons::SimpsonsIntegral;
 use mpu9250_fifo::mpu9250::{MPU9250};
 use mpu9250_fifo::mpu9250::{AccelerometerMeasurement, GyroscopeMeasurement, MagnetometerMeasurement};
 use ahrs::{Ahrs, Madgwick};
 use nalgebra::Vector3;
-use simpsons::SimpsonsIntegral;
 use std::f64;
 use std::io::Write;
 use std::io::stdout;
 
 const G_TO_METERS_PER_SEC2 : f32 = 9.80665;
-
-pub mod simpsons {
-    use crate::G_TO_METERS_PER_SEC2;
-
-    use super::AccelerometerMeasurement;
-
-    pub struct SimpsonsIntegral {
-        pub current_sum : f32,
-        delta_t : f32,
-        floating_measurement : Option<AccelerometerMeasurement>,
-    }
-    impl SimpsonsIntegral {
-        pub fn default() -> Self {
-            Self::new(1.0/500.0, 0.0)
-        }
-        pub fn new(delta_t : f32, current_sum : f32) -> Self {
-            Self {
-                current_sum: current_sum,
-                delta_t: delta_t,
-                floating_measurement : None
-            }
-        }
-        pub fn update(&mut self, accel_meas : &[AccelerometerMeasurement]) -> f32 {
-            let first : f32;
-            let last : f32;
-            let divisor = 1.0/3.0*self.delta_t * G_TO_METERS_PER_SEC2;
-            let mut odd_sum : f32 = 0.0;
-            let mut even_sum : f32 = 0.0;
-            if accel_meas.len() < 3 {
-                let mut sum = 0.0;
-                for i in (0..accel_meas.len()).step_by(2) {
-                    sum += accel_meas[i].x;
-                }
-                self.current_sum += divisor * sum;
-                return self.current_sum;
-            }
-            if accel_meas.len() % 2 == 0 {
-                // If we have an even number of points
-                first = accel_meas[0].x;
-                last = accel_meas[accel_meas.len() - 1].x;
-                for i in (1..accel_meas.len()-1).step_by(2) {
-                    odd_sum += accel_meas[i].x;
-                    even_sum += accel_meas[i+1].x;
-                }
-            }
-            else {
-                match self.floating_measurement {
-                    Some(measure) => {
-                        first = measure.x;
-                        last = accel_meas[accel_meas.len() - 1].x;
-                        for i in (1..accel_meas.len()-1).step_by(2) {
-                            odd_sum += accel_meas[i].x;
-                            even_sum += accel_meas[i+1].x;
-                        }
-                        self.floating_measurement = None
-                    }
-                    None => {
-                        first = accel_meas[0].x;
-                        last = accel_meas[accel_meas.len() - 2].x;
-                        for i in (1..(accel_meas.len()-2)).step_by(2) {
-                            odd_sum += accel_meas[i].x;
-                            even_sum += accel_meas[i+1].x;
-                        }
-                        self.floating_measurement = Some(accel_meas[accel_meas.len() - 1]);
-
-                    }
-                }
-            }
-            self.current_sum += divisor * (first + 4.0*odd_sum + 2.0*even_sum + last);
-            self.current_sum
-    }
-
-
-}
-
-}
-
 
 fn main() {
     let mut accel_meas = [AccelerometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
@@ -122,6 +46,7 @@ fn main() {
         //println!("Mag: {:?}", mag_meas_datum);
 
         let mut quat = ahrs.quat.clone();
+        let mut velocity_x = 0.0;
         print!("DATA COUNT: {} ", data_count);
         for i in 0..data_count {
             // Obtain sensor values from a source
@@ -140,12 +65,12 @@ fn main() {
                     continue;
                 }
             };
+            velocity_x = simpsons.update(accel_meas[i].x);
         }
-        simpsons.update(&accel_meas);
         std::thread::sleep(std::time::Duration::from_millis(10));
         let (roll, pitch, yaw) = quat.euler_angles();
         // Do something with the updated state quaternion
-        print!("x_vel={:0.5}, pitch={:0.5}, roll={:0.5}, yaw={:0.5}\r", simpsons.current_sum, pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
+        print!("x_vel={:0.5}, pitch={:0.5}, roll={:0.5}, yaw={:0.5}\r", velocity_x * G_TO_METERS_PER_SEC2, pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
         stdout().flush().expect("Flush std out failed");
     }
 }
