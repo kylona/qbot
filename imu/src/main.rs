@@ -8,7 +8,11 @@ use std::f64;
 use std::io::Write;
 use std::io::stdout;
 
+const G_TO_METERS_PER_SEC2 : f32 = 9.80665;
+
 pub mod simpsons {
+    use crate::G_TO_METERS_PER_SEC2;
+
     use super::AccelerometerMeasurement;
 
     pub struct SimpsonsIntegral {
@@ -30,13 +34,22 @@ pub mod simpsons {
         pub fn update(&mut self, accel_meas : &[AccelerometerMeasurement]) -> f32 {
             let first : f32;
             let last : f32;
+            let divisor = 1.0/3.0*self.delta_t * G_TO_METERS_PER_SEC2;
             let mut odd_sum : f32 = 0.0;
             let mut even_sum : f32 = 0.0;
+            if accel_meas.len() < 3 {
+                let mut sum = 0.0;
+                for i in (0..accel_meas.len()).step_by(2) {
+                    sum += accel_meas[i];
+                }
+                self.current_sum += divisor * sum;
+                return self.current_sum;
+            }
             if accel_meas.len() % 2 == 0 {
                 // If we have an even number of points
                 first = accel_meas[0].x;
                 last = accel_meas[accel_meas.len() - 1].x;
-                for i in (1..(accel_meas.len()-1)).step_by(2) {
+                for i in (1..accel_meas.len()).step_by(2) {
                     odd_sum += accel_meas[i].x;
                     even_sum += accel_meas[i+1].x;
                 }
@@ -46,7 +59,7 @@ pub mod simpsons {
                     Some(measure) => {
                         first = measure.x;
                         last = accel_meas[accel_meas.len() - 1].x;
-                        for i in (1..(accel_meas.len()-1)).step_by(2) {
+                        for i in (1..accel_meas.len()).step_by(2) {
                             odd_sum += accel_meas[i].x;
                             even_sum += accel_meas[i+1].x;
                         }
@@ -55,7 +68,7 @@ pub mod simpsons {
                     None => {
                         first = accel_meas[0].x;
                         last = accel_meas[accel_meas.len() - 2].x;
-                        for i in (1..(accel_meas.len()-2)).step_by(2) {
+                        for i in (1..(accel_meas.len()-1)).step_by(2) {
                             odd_sum += accel_meas[i].x;
                             even_sum += accel_meas[i+1].x;
                         }
@@ -64,7 +77,6 @@ pub mod simpsons {
                     }
                 }
             }
-            let divisor = 1.0/3.0*self.delta_t;
             self.current_sum += divisor * (first + 4.0*odd_sum + 2.0*even_sum + last);
             self.current_sum
     }
