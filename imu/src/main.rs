@@ -52,6 +52,14 @@ fn main() {
         let mut simpsons_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
         let mut velocity_z = 0.0;
         let mut simpsons_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
+
+        let mut pos_x = 0.0;
+        let mut simpsons_pos_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
+        let mut pos_y = 0.0;
+        let mut simpsons_pos_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
+        let mut pos_z = 0.0;
+        let mut simpsons_pos_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
+
         for i in 0..data_count {
             // Obtain sensor values from a source
             let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, gyro_meas[i].z as f64);
@@ -73,6 +81,9 @@ fn main() {
             velocity_x = simpsons_x.update(earth_frame_accelerometer[0] as f32);
             velocity_y = simpsons_y.update(earth_frame_accelerometer[1] as f32);
             velocity_z = simpsons_z.update((earth_frame_accelerometer[2] + 1.0) as f32);
+            pos_x = simpsons_pos_x.update(velocity_x);
+            pos_y = simpsons_pos_y.update(velocity_y);
+            pos_z = simpsons_pos_z.update(velocity_z);
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
         let (roll, pitch, yaw) = quat.euler_angles();
@@ -80,8 +91,9 @@ fn main() {
         print!("DATA COUNT: {}\tAcceleration Norm: {}\n ", data_count, earth_frame_accelerometer.norm());
         print!("EFA:\t {:0.5}\t {:0.5}\t {:0.5}\n", earth_frame_accelerometer[0], earth_frame_accelerometer[1], earth_frame_accelerometer[2]);
         print!("x_vel={:0.5}\t y_vel={:0.5}\t z_vel={:0.5}\n", velocity_x * G_TO_METERS_PER_SEC2, velocity_y * G_TO_METERS_PER_SEC2, velocity_z * G_TO_METERS_PER_SEC2);
+        print!("x_pos={:0.5}\t y_pos={:0.5}\t z_pos={:0.5}\n", pos_x * G_TO_METERS_PER_SEC2 * 100.0, pos_y * G_TO_METERS_PER_SEC2 * 100.0, pos_z * G_TO_METERS_PER_SEC2 * 100.0);
         print!("pitch={:0.5}\t roll={:0.5}\t yaw={:0.5}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
-        print!("\x1b[F\x1b[F\x1b[F");
+        print!("\x1b[F\x1b[F\x1b[F\x1b[F");
         stdout().flush().expect("Flush std out failed");
     }
 }
