@@ -65,7 +65,8 @@ fn main() {
                     continue;
                 }
             };
-            velocity_x = simpsons.update(accel_meas[i].x);
+            let earth_frame_accelerometer = quat.inverse_transform_vector(&accelerometer);
+            velocity_x = simpsons.update(earth_frame_accelerometer[0] as f32);
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
         let (roll, pitch, yaw) = quat.euler_angles();
