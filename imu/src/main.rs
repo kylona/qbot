@@ -18,7 +18,6 @@ fn main() {
 
     // Initialize filter with default values
     let mut ahrs = Madgwick::new(1.0/500.0, 0.1);
-    let mut simpsons = SimpsonsIntegral::new(1.0/500.0, 0.0);
     let mut mpu9250 = MPU9250::new(
         None,
         None,
@@ -45,9 +44,14 @@ fn main() {
         //println!("Gyro: {:?}", gyro_meas_datum);
         //println!("Mag: {:?}", mag_meas_datum);
 
+        let mut earth_frame_accelerometer = Vector3::new(accel_meas[0].x as f64, accel_meas[0].y as f64, accel_meas[0].z as f64);
         let mut quat = ahrs.quat.clone();
         let mut velocity_x = 0.0;
-        print!("DATA COUNT: {} ", data_count);
+        let mut simpsons_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
+        let mut velocity_y = 0.0;
+        let mut simpsons_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
+        let mut velocity_z = 0.0;
+        let mut simpsons_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
         for i in 0..data_count {
             // Obtain sensor values from a source
             let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, gyro_meas[i].z as f64);
@@ -65,13 +69,19 @@ fn main() {
                     continue;
                 }
             };
-            let earth_frame_accelerometer = quat.inverse_transform_vector(&accelerometer);
-            velocity_x = simpsons.update(earth_frame_accelerometer[0] as f32);
+            earth_frame_accelerometer = quat.transform_vector(&accelerometer);
+            velocity_x = simpsons_x.update(earth_frame_accelerometer[0] as f32);
+            velocity_y = simpsons_y.update(earth_frame_accelerometer[1] as f32);
+            velocity_z = simpsons_z.update((earth_frame_accelerometer[2] + 1.0) as f32);
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
         let (roll, pitch, yaw) = quat.euler_angles();
         // Do something with the updated state quaternion
-        print!("x_vel={:0.5}, pitch={:0.5}, roll={:0.5}, yaw={:0.5}\r", velocity_x * G_TO_METERS_PER_SEC2, pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
+        print!("DATA COUNT: {}\tAcceleration Norm: {}\n ", data_count, earth_frame_accelerometer.norm());
+        print!("EFA:\t {:0.5}\t {:0.5}\t {:0.5}\n", earth_frame_accelerometer[0], earth_frame_accelerometer[1], earth_frame_accelerometer[2]);
+        print!("x_vel={:0.5}\t y_vel={:0.5}\t z_vel={:0.5}\n", velocity_x * G_TO_METERS_PER_SEC2, velocity_y * G_TO_METERS_PER_SEC2, velocity_z * G_TO_METERS_PER_SEC2);
+        print!("pitch={:0.5}\t roll={:0.5}\t yaw={:0.5}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
+        print!("\x1b[F\x1b[F\x1b[F");
         stdout().flush().expect("Flush std out failed");
     }
 }
