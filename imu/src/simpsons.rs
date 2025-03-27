@@ -1,3 +1,5 @@
+use core::f32;
+
 
 pub struct SimpsonsIntegral {
     partial_sum : f32,
@@ -10,9 +12,9 @@ impl SimpsonsIntegral {
         Self::new(1.0/500.0, 0.0)
     }
     pub fn new(delta_t : f32, init_sum : f32) -> Self {
-        let buffer = [init_sum; 2];
+        let buffer = [init_sum/delta_t; 2];
         Self {
-            partial_sum: init_sum,
+            partial_sum: 0.0,
             result: init_sum,
             delta_t: delta_t,
             buffer: buffer,
@@ -30,3 +32,33 @@ impl SimpsonsIntegral {
         self.result
     }
 }
+
+
+    #[test]
+    fn test_simpsons_constant() {
+        let mut simpsons = SimpsonsIntegral::new(1.0/500.0, 1.0);
+        assert_eq!(simpsons.get_result(), 1.0, "Simpsons Init value incorrect");
+        assert_eq!(simpsons.update(500.0), 2.0, "Update 1 incorrect");
+        simpsons.update(500.0);
+        assert_eq!(simpsons.update(500.0), 4.0, "Update 3 incorrect");
+    }
+
+    #[test]
+    fn test_sin() {
+        let mut simpsons = SimpsonsIntegral::new(1.0/500.0, 0.0);
+        for i in 0..=100 {
+            let theta = (i as f32)/100.0 * (2.0*f32::consts::PI);
+            println!("S: {}", simpsons.update(500.0*f32::sin(theta)));
+        }
+    }
+
+    #[test]
+    fn test_const_then_zero() {
+        let mut simpsons = SimpsonsIntegral::new(1.0/500.0, 0.0);
+        for _ in 0..10 {
+            println!("C: {}", simpsons.update(500.0));
+        }
+        for _ in 0..100 {
+            println!("Z: {}", simpsons.update(0.0));
+        }
+    }
