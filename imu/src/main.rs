@@ -29,7 +29,34 @@ fn main() {
     );
     mpu9250.initialize().expect("Failed to initialize mpu9250");
     mpu9250.start_fifo().expect("Failed to start FIFO");
+    let mut earth_frame_accelerometer = Vector3::new(accel_meas[0].x as f64, accel_meas[0].y as f64, accel_meas[0].z as f64);
+    let mut velocity_x : f32 = 0.0;
+    let mut simpsons_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
+    let mut velocity_y : f32 = 0.0;
+    let mut simpsons_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
+    let mut velocity_z : f32 = 0.0;
+    let mut simpsons_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
+
+    let mut pos_x : f32 = 0.0;
+    let mut simpsons_pos_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
+    let mut pos_y : f32 = 0.0;
+    let mut simpsons_pos_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
+    let mut pos_z : f32 = 0.0;
+    let mut simpsons_pos_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
+
+    let mut loop_count = 0;
+    let velocity_decay = 0.01;
     loop {
+        loop_count += 1;
+        if loop_count % 100 == 0 {
+            simpsons_x.reset(0.0);
+            simpsons_y.reset(0.0);
+            simpsons_z.reset(0.0);
+            simpsons_pos_x.reset(0.0);
+            simpsons_pos_y.reset(0.0);
+            simpsons_pos_z.reset(0.0);
+            println!("Reset: \n\n\n\n\n\n\n\n\n");
+        }
         let data_count = match mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas) {
             Ok(count) => count,
             Err(_) => {
@@ -44,21 +71,7 @@ fn main() {
         //println!("Gyro: {:?}", gyro_meas_datum);
         //println!("Mag: {:?}", mag_meas_datum);
 
-        let mut earth_frame_accelerometer = Vector3::new(accel_meas[0].x as f64, accel_meas[0].y as f64, accel_meas[0].z as f64);
         let mut quat = ahrs.quat.clone();
-        let mut velocity_x = 0.0;
-        let mut simpsons_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
-        let mut velocity_y = 0.0;
-        let mut simpsons_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
-        let mut velocity_z = 0.0;
-        let mut simpsons_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
-
-        let mut pos_x = 0.0;
-        let mut simpsons_pos_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
-        let mut pos_y = 0.0;
-        let mut simpsons_pos_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
-        let mut pos_z = 0.0;
-        let mut simpsons_pos_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
 
         for i in 0..data_count {
             // Obtain sensor values from a source
@@ -78,21 +91,28 @@ fn main() {
                 }
             };
             earth_frame_accelerometer = quat.transform_vector(&accelerometer);
-            velocity_x = simpsons_x.update(earth_frame_accelerometer[0] as f32);
-            velocity_y = simpsons_y.update(earth_frame_accelerometer[1] as f32);
-            velocity_z = simpsons_z.update((earth_frame_accelerometer[2] + 1.0) as f32);
-            pos_x = simpsons_pos_x.update(velocity_x);
-            pos_y = simpsons_pos_y.update(velocity_y);
-            pos_z = simpsons_pos_z.update(velocity_z);
+            let round_efa_x = (earth_frame_accelerometer[0] * 1024.0).round() / 1024.0;
+            let round_efa_y = (earth_frame_accelerometer[1] * 1024.0).round() / 1024.0;
+            let round_efa_z = ((earth_frame_accelerometer[2] - 1.0) * 1024.0).round() / 1024.0;
+            velocity_x = simpsons_x.update(round_efa_x as f32 - (velocity_x.abs() + velocity_decay) * velocity_x.signum());
+            velocity_y = simpsons_y.update(round_efa_y as f32 - (velocity_y.abs() + velocity_decay) * velocity_y.signum());
+            velocity_z = simpsons_z.update(round_efa_z as f32 - (velocity_z.abs() + velocity_decay) * velocity_z.signum());
+            let round_velocity_x = (velocity_x * 1024.0).round() / 1024.0;
+            let round_velocity_y = (velocity_y * 1024.0).round() / 1024.0;
+            let round_velocity_z = (velocity_z * 1024.0).round() / 1024.0;
+            pos_x = simpsons_pos_x.update(round_velocity_x * G_TO_METERS_PER_SEC2);
+            pos_y = simpsons_pos_y.update(round_velocity_y * G_TO_METERS_PER_SEC2);
+            pos_z = simpsons_pos_z.update(round_velocity_z * G_TO_METERS_PER_SEC2);
         }
+
         std::thread::sleep(std::time::Duration::from_millis(10));
         let (roll, pitch, yaw) = quat.euler_angles();
         // Do something with the updated state quaternion
-        print!("DATA COUNT: {}\tAcceleration Norm: {}\n ", data_count, earth_frame_accelerometer.norm());
-        print!("EFA:\t {:0.5}\t {:0.5}\t {:0.5}\n", earth_frame_accelerometer[0], earth_frame_accelerometer[1], earth_frame_accelerometer[2]);
-        print!("x_vel={:0.5}\t y_vel={:0.5}\t z_vel={:0.5}\n", velocity_x * G_TO_METERS_PER_SEC2, velocity_y * G_TO_METERS_PER_SEC2, velocity_z * G_TO_METERS_PER_SEC2);
-        print!("x_pos={:0.5}\t y_pos={:0.5}\t z_pos={:0.5}\n", pos_x * G_TO_METERS_PER_SEC2 * 100.0, pos_y * G_TO_METERS_PER_SEC2 * 100.0, pos_z * G_TO_METERS_PER_SEC2 * 100.0);
-        print!("pitch={:0.5}\t roll={:0.5}\t yaw={:0.5}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
+        print!("DATA COUNT: {}\t\tLoop Count: {}\n ", data_count, loop_count);
+        print!("EFA:\t\t {:0.5}\t\t {:0.5}\t\t {:0.5}\n", earth_frame_accelerometer[0], earth_frame_accelerometer[1], earth_frame_accelerometer[2] - 1.0);
+        print!("x_vel={:0.5}\t\t y_vel={:0.5}\t\t z_vel={:0.5}\n", velocity_x * G_TO_METERS_PER_SEC2, velocity_y * G_TO_METERS_PER_SEC2, velocity_z * G_TO_METERS_PER_SEC2);
+        print!("x_pos={:0.5}\t\t y_pos={:0.5}\t\t z_pos={:0.5}\n", pos_x * G_TO_METERS_PER_SEC2 * 100.0, pos_y * G_TO_METERS_PER_SEC2 * 100.0, pos_z * G_TO_METERS_PER_SEC2 * 100.0);
+        print!("pitch={:0.5}\t\t roll={:0.5}\t\t yaw={:0.5}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
         print!("\x1b[F\x1b[F\x1b[F\x1b[F");
         stdout().flush().expect("Flush std out failed");
     }

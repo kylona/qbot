@@ -20,6 +20,9 @@ impl SimpsonsIntegral {
             buffer: buffer,
         }
     }
+    pub fn reset(&mut self, value : f32) {
+        self.partial_sum = value - self.delta_t * (self.buffer[0] + self.buffer[1])/2.0;
+    }
     pub fn update(&mut self, value : f32) -> f32 {
         let update_sum = self.delta_t/3.0 * (self.buffer[0] + 4.0*self.buffer[1] + value);
         self.result = self.partial_sum + update_sum;
