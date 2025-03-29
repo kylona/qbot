@@ -91,18 +91,12 @@ fn main() {
                 }
             };
             earth_frame_accelerometer = quat.transform_vector(&accelerometer);
-            let round_efa_x = (earth_frame_accelerometer[0] * 1024.0).round() / 1024.0;
-            let round_efa_y = (earth_frame_accelerometer[1] * 1024.0).round() / 1024.0;
-            let round_efa_z = ((earth_frame_accelerometer[2] - 1.0) * 1024.0).round() / 1024.0;
-            velocity_x = simpsons_x.update(round_efa_x as f32 - (velocity_x.abs() + velocity_decay) * velocity_x.signum());
-            velocity_y = simpsons_y.update(round_efa_y as f32 - (velocity_y.abs() + velocity_decay) * velocity_y.signum());
-            velocity_z = simpsons_z.update(round_efa_z as f32 - (velocity_z.abs() + velocity_decay) * velocity_z.signum());
-            let round_velocity_x = (velocity_x * 1024.0).round() / 1024.0;
-            let round_velocity_y = (velocity_y * 1024.0).round() / 1024.0;
-            let round_velocity_z = (velocity_z * 1024.0).round() / 1024.0;
-            pos_x = simpsons_pos_x.update(round_velocity_x * G_TO_METERS_PER_SEC2);
-            pos_y = simpsons_pos_y.update(round_velocity_y * G_TO_METERS_PER_SEC2);
-            pos_z = simpsons_pos_z.update(round_velocity_z * G_TO_METERS_PER_SEC2);
+            velocity_x = simpsons_x.update(earth_frame_accelerometer[0] as f32 - (velocity_x.abs() + velocity_decay) * velocity_x.signum());
+            velocity_y = simpsons_y.update(earth_frame_accelerometer[1] as f32 - (velocity_y.abs() + velocity_decay) * velocity_y.signum());
+            velocity_z = simpsons_z.update(earth_frame_accelerometer[2] as f32 - (velocity_z.abs() + velocity_decay) * velocity_z.signum());
+            pos_x = simpsons_pos_x.update(velocity_x * G_TO_METERS_PER_SEC2);
+            pos_y = simpsons_pos_y.update(velocity_y * G_TO_METERS_PER_SEC2);
+            pos_z = simpsons_pos_z.update(velocity_z * G_TO_METERS_PER_SEC2);
         }
 
         std::thread::sleep(std::time::Duration::from_millis(10));
