@@ -12,7 +12,7 @@ int main (int argc, char ** argv)
   dds_entity_t participant;
   dds_entity_t topic;
   dds_entity_t reader;
-  HelloWorldData_Msg *msg;
+  qbot_msg_HelloWorldData *msg;
   void *samples[MAX_SAMPLES];
   dds_sample_info_t infos[MAX_SAMPLES];
   dds_return_t rc;
@@ -27,7 +27,7 @@ int main (int argc, char ** argv)
 
   /* Create a Topic. */
   topic = dds_create_topic (
-    participant, &HelloWorldData_Msg_desc, "HelloWorldData_Msg", NULL, NULL);
+    participant, &qbot_msg_HelloWorldData_desc, "HelloWorldData_Msg", NULL, NULL);
   if (topic < 0)
     DDS_FATAL("dds_create_topic: %s\n", dds_strretcode(-topic));
 
@@ -59,9 +59,9 @@ int main (int argc, char ** argv)
     if ((rc > 0) && (infos[0].valid_data))
     {
       /* Print Message. */
-      msg = (HelloWorldData_Msg*) samples[0];
+      msg = (qbot_msg_HelloWorldData*) samples[0];
       printf ("=== [Subscriber] Received : ");
-      printf ("Message (%"PRId32", %s)\n", msg->userID, msg->message);
+      printf ("Message (%"PRId32", %s)\n", msg->user_id, msg->message);
       fflush (stdout);
       break;
     }

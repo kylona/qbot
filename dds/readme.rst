@@ -38,10 +38,10 @@ Scenario
 
 The publisher sends a single HelloWorld sample. The sample contains two fields:
 
-- a ``userID`` field (long type)
+- a ``user_id`` field (long type)
 - a ``message`` field (string type)
 
-When it receives the sample, the subscriber displays the ``userID`` and the ``message`` field.
+When it receives the sample, the subscriber displays the ``user_id`` and the ``message`` field.
 
 Running the example
 *******************

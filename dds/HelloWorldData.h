@@ -6,8 +6,8 @@
   Cyclone DDS: V0.11.0
 
 *****************************************************************/
-#ifndef DDSC__HOME_KYLONA_WORKSPACE_QBOT_DDS_HELLOWORLDDATA_H_F8AF025354452DA7AB0CCD5A1F7C881C
-#define DDSC__HOME_KYLONA_WORKSPACE_QBOT_DDS_HELLOWORLDDATA_H_F8AF025354452DA7AB0CCD5A1F7C881C
+#ifndef DDSC__HOME_KYLONA_WORKSPACE_QBOT_DDS_HELLOWORLDDATA_H_116FB0DBB0D8A01665A1469C69210BEE
+#define DDSC__HOME_KYLONA_WORKSPACE_QBOT_DDS_HELLOWORLDDATA_H_116FB0DBB0D8A01665A1469C69210BEE
 
 #include "dds/ddsc/dds_public_impl.h"
 
@@ -15,22 +15,22 @@
 extern "C" {
 #endif
 
-typedef struct HelloWorldData_Msg
+typedef struct qbot_msg_HelloWorldData
 {
-  int32_t userID;
+  int32_t user_id;
   char * message;
-} HelloWorldData_Msg;
+} qbot_msg_HelloWorldData;
 
-extern const dds_topic_descriptor_t HelloWorldData_Msg_desc;
+extern const dds_topic_descriptor_t qbot_msg_HelloWorldData_desc;
 
-#define HelloWorldData_Msg__alloc() \
-((HelloWorldData_Msg*) dds_alloc (sizeof (HelloWorldData_Msg)));
+#define qbot_msg_HelloWorldData__alloc() \
+((qbot_msg_HelloWorldData*) dds_alloc (sizeof (qbot_msg_HelloWorldData)));
 
-#define HelloWorldData_Msg_free(d,o) \
-dds_sample_free ((d), &HelloWorldData_Msg_desc, (o))
+#define qbot_msg_HelloWorldData_free(d,o) \
+dds_sample_free ((d), &qbot_msg_HelloWorldData_desc, (o))
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* DDSC__HOME_KYLONA_WORKSPACE_QBOT_DDS_HELLOWORLDDATA_H_F8AF025354452DA7AB0CCD5A1F7C881C */
+#endif /* DDSC__HOME_KYLONA_WORKSPACE_QBOT_DDS_HELLOWORLDDATA_H_116FB0DBB0D8A01665A1469C69210BEE */
