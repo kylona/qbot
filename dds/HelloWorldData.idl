@@ -1,0 +1,14 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from qbot/msg/HelloWorldData.msg
+// generated code does not contain a copyright notice
+
+
+module qbot {
+  module msg {
+    struct HelloWorldData {
+      int32 user_id;
+
+      string message;
+    };
+  };
+};

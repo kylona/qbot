@@ -99,7 +99,7 @@ fn main() {
             pos_z = simpsons_pos_z.update(velocity_z * G_TO_METERS_PER_SEC2);
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        // std::thread::sleep(std::time::Duration::from_millis(10));
         let (roll, pitch, yaw) = quat.euler_angles();
         // Do something with the updated state quaternion
         print!("DATA COUNT: {}\t\tLoop Count: {}\n ", data_count, loop_count);
