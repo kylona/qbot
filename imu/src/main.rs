@@ -1,6 +1,8 @@
 extern crate mpu9250_fifo;
 pub mod simpsons;
+pub mod sync;
 use crate::simpsons::SimpsonsIntegral;
+use crate::sync::{SyncConnection, Pose, Quaternion, Point};
 use mpu9250_fifo::mpu9250::{MPU9250};
 use mpu9250_fifo::mpu9250::{AccelerometerMeasurement, GyroscopeMeasurement, MagnetometerMeasurement};
 use ahrs::{Ahrs, Madgwick};
@@ -17,6 +19,7 @@ fn main() {
     let mut mag_meas = [MagnetometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
 
     // Initialize filter with default values
+    let mut sync_connection = SyncConnection::default();
     let mut ahrs = Madgwick::new(1.0/500.0, 0.1);
     let mut mpu9250 = MPU9250::new(
         None,
@@ -27,6 +30,7 @@ fn main() {
         Some(true),
         Some(false),
     );
+
     mpu9250.initialize().expect("Failed to initialize mpu9250");
     mpu9250.start_fifo().expect("Failed to start FIFO");
     let mut earth_frame_accelerometer = Vector3::new(accel_meas[0].x as f64, accel_meas[0].y as f64, accel_meas[0].z as f64);
@@ -115,5 +119,19 @@ fn main() {
         print!("pitch={:0.5}\t\t roll={:0.5}\t\t yaw={:0.5}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
         print!("\x1b[F\x1b[F\x1b[F\x1b[F");
         stdout().flush().expect("Flush std out failed");
+        sync_connection.sync_pose(Pose {
+            orientation: Quaternion {
+                x: quat[0],
+                y: quat[1],
+                z: quat[2],
+                w: quat[3],
+            },
+            position: Position {
+                x: pos_x,
+                y: pos_y,
+                z: pos_z,
+            }
+
+        });
     }
 }
