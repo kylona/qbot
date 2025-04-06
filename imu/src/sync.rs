@@ -1,4 +1,4 @@
- use cdr_encoding::to_vec;
+use cdr_encoding::to_vec;
 use zenoh::{Session, Config};
 use zenoh::pubsub::Publisher;
 use serde::{Serialize, Deserialize};
@@ -61,14 +61,15 @@ impl SyncConnection<'_> {
          }
     }
 
-    pub fn sync_pose(&self, pose : Pose) {
+    pub async fn sync_pose(&self, pose : Pose) {
         println!("GOT POSE: {:?}", pose);
         let stamped_pose = PoseStamped {
             header: Header { seq: 0, stamp: Time { sec: 0, nsec: 0 }, frame_id: String::from("qbot") },
             pose: pose,
         };
         let serialized = to_vec::<PoseStamped, LittleEndian>(&stamped_pose).unwrap();
-        println!("SERIALIZED MESSAGE: {:?}", serialized)
+        println!("SERIALIZED MESSAGE: {:?}", serialized);
+        self.orientation_publisher.put(serialized).await.unwrap();
     }
 }
 

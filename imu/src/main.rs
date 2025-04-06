@@ -20,7 +20,7 @@ async fn main() {
     let mut mag_meas = [MagnetometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
 
     // Initialize filter with default values
-    let mut sync_connection = SyncConnection::default().await;
+    let sync_connection = SyncConnection::default().await;
     let mut ahrs = Madgwick::new(1.0/500.0, 0.1);
     let mut mpu9250 = MPU9250::new(
         None,
@@ -133,6 +133,6 @@ async fn main() {
                 z: pos_z as f64,
             }
 
-        });
+        }).await;
     }
 }
