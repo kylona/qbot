@@ -1,57 +1,73 @@
  use cdr_encoding::to_vec;
-use zenoh::{}
+use zenoh::{Session, Config};
+use zenoh::pubsub::Publisher;
 use serde::{Serialize, Deserialize};
 use byteorder::LittleEndian;
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Quaternion {
-    x : f64,
-    y : f64,
-    z : f64,
-    w : f64,
+    pub x : f64,
+    pub y : f64,
+    pub z : f64,
+    pub w : f64,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Point {
-    x : f64,
-    y : f64,
-    z : f64,
+    pub x : f64,
+    pub y : f64,
+    pub z : f64,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Pose {
-    orientation : Quaternion,
-    position: Point,
+    pub orientation : Quaternion,
+    pub position: Point,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Time {
-    sec: i32,
-    nsec: i32,
+    pub sec: i32,
+    pub nsec: i32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Header {
-    seq : i32,
-    stamp : Time,
-    frame_id : str,
+    pub seq : i32,
+    pub stamp : Time,
+    pub frame_id : String,
 }
 
-pub struct SyncConnection {
-    session : zenoh::Session
-    orientation_publisher : zenoh::Publisher
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PoseStamped {
+    header : Header,
+    pose : Pose,
 }
-impl SyncConnection {
-    pub fn default() -> Self {
+
+pub struct SyncConnection<'a> {
+    pub session : Session,
+    pub orientation_publisher : Publisher<'a>,
+}
+impl SyncConnection<'_> {
+    pub async fn default() -> Self {
          println!("Opening session...");
-         config = zenoh::Config.from_json5("");
+         let config = Config::default();
          let session = zenoh::open(config).await.unwrap();
          println!("Declaring Publisher on imu/orientation'...");
          let orientation_publisher = session.declare_publisher("imu/orientation").await.unwrap();
          Self {
-            session: session
+            session: session,
             orientation_publisher : orientation_publisher
          }
     }
 
     pub fn sync_pose(&self, pose : Pose) {
-        println!("GOT POSE: {:?}", pose)
-        let serialized = to_vec::<ShapeType, LittleEndian>(&message).unwrap();
+        println!("GOT POSE: {:?}", pose);
+        let stamped_pose = PoseStamped {
+            header: Header { seq: 0, stamp: Time { sec: 0, nsec: 0 }, frame_id: String::from("qbot") },
+            pose: pose,
+        };
+        let serialized = to_vec::<PoseStamped, LittleEndian>(&stamped_pose).unwrap();
         println!("SERIALIZED MESSAGE: {:?}", serialized)
     }
 }

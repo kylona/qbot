@@ -13,13 +13,14 @@ use std::io::stdout;
 
 const G_TO_METERS_PER_SEC2 : f32 = 9.80665;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let mut accel_meas = [AccelerometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
     let mut gyro_meas = [GyroscopeMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
     let mut mag_meas = [MagnetometerMeasurement { x: 0.0, y : 0.0, z: 0.0}; 100];
 
     // Initialize filter with default values
-    let mut sync_connection = SyncConnection::default();
+    let mut sync_connection = SyncConnection::default().await;
     let mut ahrs = Madgwick::new(1.0/500.0, 0.1);
     let mut mpu9250 = MPU9250::new(
         None,
@@ -126,10 +127,10 @@ fn main() {
                 z: quat[2],
                 w: quat[3],
             },
-            position: Position {
-                x: pos_x,
-                y: pos_y,
-                z: pos_z,
+            position: Point {
+                x: pos_x as f64,
+                y: pos_y as f64,
+                z: pos_z as f64,
             }
 
         });
