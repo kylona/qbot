@@ -45,17 +45,16 @@ with zenoh.open(zenoh.Config()) as session:
     def generic_callback(sample):
         print(f"{sample=}")
 
-    sub = session.declare_subscriber('rt/rosout', rosout_callback)
-    sub = session.declare_subscriber('rt/rosout', rosout_callback)
+    sub = session.declare_subscriber('rosout', rosout_callback)
 
     # Publish a Twist message with key 'rt/turtle1/cmd_vel' to make the turtlesim to move forward
-    t = Twist(linear=Vector3(x=2.0, y=0.0, z=0.0),
+    t = Twist(linear=Vector3(x=-20.0, y=0.0, z=0.0),
               angular=Vector3(x=0.0, y=0.0, z=0.0)).serialize()
-    session.declare_publisher("rt/turtle/cmd_vel")
+    session.declare_publisher("turtle1/cmd_vel")
 
 
     # Make it move forward until it hits the wall!!
     while True:
-        session.put('rt/turtle1/cmd_vel', t)
+        session.put('turtle1/cmd_vel', t)
         sleep(1.0)
         print("SENT COMMANDS:", t)

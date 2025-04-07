@@ -5,5 +5,5 @@ def listener(sample):
 
 if __name__ == "__main__":
     with zenoh.open(zenoh.Config()) as session:
-        sub = session.declare_subscriber('myhome/kitchen/temp', listener)
+        sub = session.declare_subscriber('rt/kitchen/temp', listener)
         time.sleep(60)

@@ -12,7 +12,7 @@ int main (int argc, char ** argv)
   dds_entity_t participant;
   dds_entity_t topic;
   dds_entity_t reader;
-  qbot_msg_HelloWorldData *msg;
+  std_msgs_msg_dds__String_ *msg;
   void *samples[MAX_SAMPLES];
   dds_sample_info_t infos[MAX_SAMPLES];
   dds_return_t rc;
@@ -27,7 +27,7 @@ int main (int argc, char ** argv)
 
   /* Create a Topic. */
   topic = dds_create_topic (
-    participant, &qbot_msg_HelloWorldData_desc, "HelloWorldData_Msg", NULL, NULL);
+    participant, &std_msgs_msg_dds__String__desc, "rt/HelloWorldData_Msg", NULL, NULL);
   if (topic < 0)
     DDS_FATAL("dds_create_topic: %s\n", dds_strretcode(-topic));
 
@@ -44,7 +44,7 @@ int main (int argc, char ** argv)
 
   /* Initialize sample buffer, by pointing the void pointer within
    * the buffer array to a valid sample memory location. */
-  samples[0] = HelloWorldData_Msg__alloc ();
+  samples[0] = std_msgs_msg_dds__String___alloc ();
 
   /* Poll until data has been read. */
   while (true)
@@ -59,9 +59,9 @@ int main (int argc, char ** argv)
     if ((rc > 0) && (infos[0].valid_data))
     {
       /* Print Message. */
-      msg = (qbot_msg_HelloWorldData*) samples[0];
+      msg = (std_msgs_msg_dds__String_*) samples[0];
       printf ("=== [Subscriber] Received : ");
-      printf ("Message (%"PRId32", %s)\n", msg->user_id, msg->message);
+      printf ("Message (%s)\n", msg->data);
       fflush (stdout);
       break;
     }
@@ -73,7 +73,7 @@ int main (int argc, char ** argv)
   }
 
   /* Free the data location. */
-  HelloWorldData_Msg_free (samples[0], DDS_FREE_ALL);
+  std_msgs_msg_dds__String__free (samples[0], DDS_FREE_ALL);
 
   /* Deleting the participant will delete all its children recursively as well. */
   rc = dds_delete (participant);
