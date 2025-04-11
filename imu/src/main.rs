@@ -21,7 +21,7 @@ async fn main() {
 
     // Initialize filter with default values
     let sync_connection = SyncConnection::default().await;
-    let mut ahrs = Madgwick::new(1.0/500.0, 0.1);
+    let mut ahrs = Madgwick::new(1.0/500.0, 0.5);
     let mut mpu9250 = MPU9250::new(
         None,
         None,
@@ -80,7 +80,7 @@ async fn main() {
 
         for i in 0..data_count {
             // Obtain sensor values from a source
-            let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, gyro_meas[i].z as f64);
+            let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, -gyro_meas[i].z as f64);
             let accelerometer = Vector3::new(accel_meas[i].x as f64, accel_meas[i].y as f64, accel_meas[i].z as f64);
             //let magnetometer = Vector3::new(mag_meas[i].x as f64, mag_meas[i].y as f64, mag_meas[i].z as f64);
 
@@ -120,17 +120,18 @@ async fn main() {
         print!("pitch={:0.5}\t\t roll={:0.5}\t\t yaw={:0.5}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
         print!("\x1b[F\x1b[F\x1b[F\x1b[F");
         stdout().flush().expect("Flush std out failed");
+        let result_quat = quat.inverse();
         sync_connection.sync_pose(Pose {
             orientation: Quaternion {
-                x: quat[0],
-                y: quat[1],
-                z: quat[2],
-                w: quat[3],
+                x: result_quat[0],
+                y: result_quat[1],
+                z: result_quat[2],
+                w: result_quat[3],
             },
             position: Point {
-                x: pos_x as f64,
-                y: pos_y as f64,
-                z: pos_z as f64,
+                x: 0.0 as f64,
+                y: 0.0 as f64,
+                z: 0.0 as f64,
             }
 
         }).await;
