@@ -55,8 +55,11 @@ pub struct Header {
 pub struct Imu {
     pub header : Header,
     pub orientation : Quaternion,
+    pub orientation_covariance : [f64; 9],
     pub angular_velocity : ImuVector3,
+    pub angular_velocity_covariance : [f64; 9],
     pub linear_acceleration : ImuVector3,
+    pub linear_acceleration_covariance : [f64; 9],
 }
 impl Imu {
     pub fn default() -> Self {
@@ -74,15 +77,29 @@ impl Imu {
                 z: 0.0,
                 w: 0.0,
             },
+            orientation_covariance: [
+                0.1, 0.0, 0.0,
+                0.0, 0.1, 0.0,
+                0.0, 0.0, 0.1,
+            ],
             angular_velocity: ImuVector3::default(),
+            angular_velocity_covariance: [
+                0.1, 0.0, 0.0,
+                0.0, 0.1, 0.0,
+                0.0, 0.0, 0.1,
+            ],
             linear_acceleration: ImuVector3::default(),
+            linear_acceleration_covariance: [
+                0.0784532, 0.0, 0.0,
+                0.0, 0.0784532, 0.0,
+                0.0, 0.0, 0.0784532,
+            ],
         }
     }
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImuPack {
-    pub size : u32, 
+    pub size : u32,
     pub data : Vec<Imu>,
 }
 impl From<&Vec<Imu>> for ImuPack {
@@ -115,19 +132,19 @@ impl SyncConnection<'_> {
     pub async fn sync_imu(&self, imu_messages : &Vec<Imu>) {
 
 	// Create the 4-byte CDR_LE header
-        let header: [u8; 4] = [0x00, 0x01, 0x00, 0x00]; // CDR_LE identifier + zero options
+	let header: [u8; 4] = [0x00, 0x01, 0x00, 0x00]; // CDR_LE identifier + zero options
 
-        // Create the actual payload
-        let mut payload_bytes = to_vec::<ImuPack, LittleEndian>(&ImuPack::from(imu_messages)).unwrap();
+	// Create the actual payload
+	let mut payload_bytes = to_vec::<ImuPack, LittleEndian>(&ImuPack::from(imu_messages)).unwrap();
+	//
+	// Prepend the header to the payload bytes
+	let mut full_message_bytes = Vec::with_capacity(header.len() + payload_bytes.len());
+	full_message_bytes.extend_from_slice(&header);
+	full_message_bytes.append(&mut payload_bytes); // Note: append moves elements
 
-        // Prepend the header to the payload bytes
-        let mut full_message_bytes = Vec::with_capacity(header.len() + payload_bytes.len());
-        full_message_bytes.extend_from_slice(&header);
-        full_message_bytes.append(&mut payload_bytes); // Note: append moves elements
-
-        // Convert to ZBytes for Zenoh
-        let zbytes_payload: ZBytes = full_message_bytes.into();
-        self.imu_publisher.put(zbytes_payload).await.unwrap();
+	// Convert to ZBytes for Zenoh
+	let zbytes_payload: ZBytes = full_message_bytes.into();
+	self.imu_publisher.put(zbytes_payload).await.unwrap();
     }
 
 }
