@@ -10,7 +10,7 @@ use std::time::{Duration, SystemTime};
 
 
 const G_TO_METERS_PER_SEC2 : f64 = 9.80665;
-const SAMPLE_PERIOD : f64 = 1.0/200.0;
+const SAMPLE_PERIOD : f64 = 1.0/500.0;
 
 fn get_timestamp(start_time : SystemTime, sample_num : u64) -> Time {
     let sample_time = start_time + Duration::from_secs_f64(sample_num as f64 * SAMPLE_PERIOD);
@@ -34,7 +34,7 @@ async fn main() {
         None,
         None,
         None,
-        Some(sample_rate::FREQUENCY_200_HZ),
+        Some(sample_rate::FREQUENCY_500_HZ),
         Some(true),
         Some(true),
         Some(false),

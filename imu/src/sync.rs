@@ -122,7 +122,7 @@ impl SyncConnection<'_> {
          let config = Config::default();
          let session = zenoh::open(config).await.unwrap();
          println!("Declaring Publisher on qbot/imu'...");
-         let imu_publisher = session.declare_publisher("qbot/imu_pack").await.unwrap();
+         let imu_publisher = session.declare_publisher("qbot/imu").await.unwrap();
          Self {
             session: session,
             imu_publisher : imu_publisher
@@ -131,20 +131,22 @@ impl SyncConnection<'_> {
 
     pub async fn sync_imu(&self, imu_messages : &Vec<Imu>) {
 
-	// Create the 4-byte CDR_LE header
-	let header: [u8; 4] = [0x00, 0x01, 0x00, 0x00]; // CDR_LE identifier + zero options
+        for message in imu_messages {
+            // Create the 4-byte CDR_LE header
+            let header: [u8; 4] = [0x00, 0x01, 0x00, 0x00]; // CDR_LE identifier + zero options
 
-	// Create the actual payload
-	let mut payload_bytes = to_vec::<ImuPack, LittleEndian>(&ImuPack::from(imu_messages)).unwrap();
-	//
-	// Prepend the header to the payload bytes
-	let mut full_message_bytes = Vec::with_capacity(header.len() + payload_bytes.len());
-	full_message_bytes.extend_from_slice(&header);
-	full_message_bytes.append(&mut payload_bytes); // Note: append moves elements
+            // Create the actual payload
+            let mut payload_bytes = to_vec::<Imu, LittleEndian>(message).unwrap();
+            //
+            // Prepend the header to the payload bytes
+            let mut full_message_bytes = Vec::with_capacity(header.len() + payload_bytes.len());
+            full_message_bytes.extend_from_slice(&header);
+            full_message_bytes.append(&mut payload_bytes); // Note: append moves elements
 
-	// Convert to ZBytes for Zenoh
-	let zbytes_payload: ZBytes = full_message_bytes.into();
-	self.imu_publisher.put(zbytes_payload).await.unwrap();
+            // Convert to ZBytes for Zenoh
+            let zbytes_payload: ZBytes = full_message_bytes.into();
+            self.imu_publisher.put(zbytes_payload).await.unwrap();
+        }
     }
 
 }
