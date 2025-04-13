@@ -25,9 +25,9 @@ class CompressedImage(IdlStruct):
 
 if __name__ == '__main__':
     try:
-        width = 1920
-        height = 1080
-        capture_interval = 0.5  # Capture every 0.5 seconds
+        width = 1280
+        height = 720
+        capture_interval = 1/24  # Capture every 0.5 seconds
         ros_topic = "qbot/camera/compressed_image"
         image_format = "jpeg"  # Consistent with the capture format
         frame_id = "camera_optical_frame"
@@ -37,7 +37,7 @@ if __name__ == '__main__':
             publisher = session.declare_publisher(ros_topic)
 
             picam2 = Picamera2()
-            config = picam2.create_still_configuration(main={"size": (width, height)})
+            config = picam2.create_video_configuration(main={"size": (width, height)})
             picam2.configure(config)
             picam2.start()
 
