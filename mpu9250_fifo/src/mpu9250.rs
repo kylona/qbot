@@ -3462,9 +3462,11 @@ pub fn get_fifo_data(&mut self, data: &mut [u8]) -> Result<usize> {
     if fifo_count == FIFO_SIZE {
         return Err(anyhow!("FIFO Overflow"));
     }
-    // Always empty the FIFO. But only return the number of bytes that form valid frames
     // TODO return special type to warn if a partial frame was cleared from fifo
-    let valid_bytes = fifo_count - (fifo_count % self.frame_size);
+    let mut valid_bytes = fifo_count - (fifo_count % self.frame_size);
+    if (valid_bytes > FIFO_SIZE) {
+        valid_bytes = FIFO_SIZE;
+    }
     let mut messages = [
         Message::Write {
             address: self.dev_address,
