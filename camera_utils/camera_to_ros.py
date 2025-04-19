@@ -25,11 +25,11 @@ class CompressedImage(IdlStruct):
 
 if __name__ == '__main__':
     try:
-        width = 1280
-        height = 720
-        capture_interval = 1/24  # Capture every 0.5 seconds
+        width = 854 
+        height = 480
+        capture_interval = 1/50
         ros_topic = "qbot/camera/compressed_image"
-        image_format = "jpeg"  # Consistent with the capture format
+        image_format = "jpeg"  
         frame_id = "camera_optical_frame"
 
         # Zenoh setup
