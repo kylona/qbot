@@ -1,6 +1,11 @@
 [package]
 name = "camera"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+zenoh = "1.3.2"
+cdr-encoding = "0.10.2"
+serde = "1.0.219"
+byteorder = "1.5.0"
+libcamera = "0.3.0"
