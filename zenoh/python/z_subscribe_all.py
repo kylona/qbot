@@ -11,7 +11,7 @@ def listener(sample):
         message = HelloWorldMessage.deserialize(sample.payload.to_bytes())
         print(f"Received {sample.kind} ('{sample.key_expr}': '{message.data}')")
     except Exception as e:
-        print(f"Received {sample.kind} ('{sample.key_expr}': '{sample.payload}')")
+        print(f"Received {sample.kind} ('{sample.key_expr}': '{sample.payload_to_bytes()}')")
 
 if __name__ == "__main__":
     with zenoh.open(zenoh.Config()) as session:

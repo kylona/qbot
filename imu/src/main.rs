@@ -1,17 +1,25 @@
 extern crate mpu9250_fifo;
-pub mod simpsons;
 pub mod sync;
-use crate::simpsons::SimpsonsIntegral;
-use crate::sync::{SyncConnection, Pose, Quaternion, Point};
-use mpu9250_fifo::mpu9250::{MPU9250};
+use crate::sync::{SyncConnection, Imu, Header, Time, Quaternion, ImuVector3};
+use mpu9250_fifo::mpu9250::{MPU9250, sample_rate};
 use mpu9250_fifo::mpu9250::{AccelerometerMeasurement, GyroscopeMeasurement, MagnetometerMeasurement};
 use ahrs::{Ahrs, Madgwick};
 use nalgebra::Vector3;
 use std::f64;
-use std::io::Write;
-use std::io::stdout;
+use std::time::{Duration, SystemTime};
 
-const G_TO_METERS_PER_SEC2 : f32 = 9.80665;
+
+const G_TO_METERS_PER_SEC2 : f64 = 9.80665;
+const SAMPLE_PERIOD : f64 = 1.0/500.0;
+
+fn get_timestamp(start_time : SystemTime, sample_num : u64) -> Time {
+    let sample_time = start_time + Duration::from_secs_f64(sample_num as f64 * SAMPLE_PERIOD);
+    let stamp_time = sample_time.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+    Time {
+       sec: stamp_time.as_secs() as i32,
+       nsec: stamp_time.subsec_nanos() as i32,
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -21,12 +29,12 @@ async fn main() {
 
     // Initialize filter with default values
     let sync_connection = SyncConnection::default().await;
-    let mut ahrs = Madgwick::new(1.0/500.0, 0.1);
+    let mut ahrs = Madgwick::new(SAMPLE_PERIOD, 0.5);
     let mut mpu9250 = MPU9250::new(
         None,
         None,
         None,
-        None,
+        Some(sample_rate::FREQUENCY_500_HZ),
         Some(true),
         Some(true),
         Some(false),
@@ -34,105 +42,72 @@ async fn main() {
 
     mpu9250.initialize().expect("Failed to initialize mpu9250");
     mpu9250.start_fifo().expect("Failed to start FIFO");
-    let mut earth_frame_accelerometer = Vector3::new(accel_meas[0].x as f64, accel_meas[0].y as f64, accel_meas[0].z as f64);
-    let mut velocity_x : f32 = 0.0;
-    let mut simpsons_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
-    let mut velocity_y : f32 = 0.0;
-    let mut simpsons_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
-    let mut velocity_z : f32 = 0.0;
-    let mut simpsons_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
-
-    let mut pos_x : f32 = 0.0;
-    let mut simpsons_pos_x = SimpsonsIntegral::new(1.0/500.0, 0.0);
-    let mut pos_y : f32 = 0.0;
-    let mut simpsons_pos_y = SimpsonsIntegral::new(1.0/500.0, 0.0);
-    let mut pos_z : f32 = 0.0;
-    let mut simpsons_pos_z = SimpsonsIntegral::new(1.0/500.0, 0.0);
-
-    let mut loop_count = 0;
-    let velocity_decay = 0.01;
+    let mut fifo_start = SystemTime::now();
+    let mut total_num_samples : u64 = 0;
     loop {
-        loop_count += 1;
-        if loop_count % 100 == 0 {
-            simpsons_x.reset(0.0);
-            simpsons_y.reset(0.0);
-            simpsons_z.reset(0.0);
-            simpsons_pos_x.reset(0.0);
-            simpsons_pos_y.reset(0.0);
-            simpsons_pos_z.reset(0.0);
-            println!("Reset: \n\n\n\n\n\n\n\n\n");
-        }
         let data_count = match mpu9250.get_fifo_measurements(&mut accel_meas, &mut gyro_meas, &mut mag_meas) {
             Ok(count) => count,
             Err(_) => {
                 println!("FIFO Overflow detected");
                 mpu9250.flush_fifo().expect("FIFO Flush after overflow failed");
+                fifo_start = SystemTime::now();
                 continue;
             }
         };
-        //let (accel_meas_datum, gyro_meas_datum, mag_meas_datum) = mpu9250.measure_motion_9().expect("Could not connect to mpu9250");
-        //println!("Measured Data:");
-        //println!("Accel: {:?}", accel_meas_datum);
-        //println!("Gyro: {:?}", gyro_meas_datum);
-        //println!("Mag: {:?}", mag_meas_datum);
 
-        let mut quat = ahrs.quat.clone();
+        if data_count > 0 {
+            let mut imu_messages : Vec<Imu> = Vec::with_capacity(data_count);
+            for i in 0..data_count {
+                let timestamp = get_timestamp(fifo_start, total_num_samples);
+                total_num_samples += 1;
+                // Obtain sensor values from a source
+                let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, -gyro_meas[i].z as f64);
+                let accelerometer = Vector3::new(accel_meas[i].x as f64, accel_meas[i].y as f64, accel_meas[i].z as f64);
+                //let magnetometer = Vector3::new(mag_meas[i].x as f64, mag_meas[i].y as f64, mag_meas[i].z as f64);
 
-        for i in 0..data_count {
-            // Obtain sensor values from a source
-            let gyroscope = Vector3::new(gyro_meas[i].x as f64, gyro_meas[i].y as f64, gyro_meas[i].z as f64);
-            let accelerometer = Vector3::new(accel_meas[i].x as f64, accel_meas[i].y as f64, accel_meas[i].z as f64);
-            //let magnetometer = Vector3::new(mag_meas[i].x as f64, mag_meas[i].y as f64, mag_meas[i].z as f64);
-
-            // Run inputs through AHRS filter (gyroscope must be radians/s)
-            quat = match ahrs.update_imu(
-                &(gyroscope * (f64::consts::PI / 180.0)),
-                &accelerometer,
-                //&magnetometer,
-            ) {
-                Ok(val) => *val,
-                Err(_) => {
-                    continue;
-                }
-            };
-            earth_frame_accelerometer = quat.transform_vector(&accelerometer);
-            let round_efa_x = (earth_frame_accelerometer[0] * 1024.0).round() / 1024.0;
-            let round_efa_y = (earth_frame_accelerometer[1] * 1024.0).round() / 1024.0;
-            let round_efa_z = ((earth_frame_accelerometer[2] - 1.0) * 1024.0).round() / 1024.0;
-            velocity_x = simpsons_x.update(round_efa_x as f32 - (velocity_x.abs() + velocity_decay) * velocity_x.signum());
-            velocity_y = simpsons_y.update(round_efa_y as f32 - (velocity_y.abs() + velocity_decay) * velocity_y.signum());
-            velocity_z = simpsons_z.update(round_efa_z as f32 - (velocity_z.abs() + velocity_decay) * velocity_z.signum());
-            let round_velocity_x = (velocity_x * 1024.0).round() / 1024.0;
-            let round_velocity_y = (velocity_y * 1024.0).round() / 1024.0;
-            let round_velocity_z = (velocity_z * 1024.0).round() / 1024.0;
-            pos_x = simpsons_pos_x.update(round_velocity_x * G_TO_METERS_PER_SEC2);
-            pos_y = simpsons_pos_y.update(round_velocity_y * G_TO_METERS_PER_SEC2);
-            pos_z = simpsons_pos_z.update(round_velocity_z * G_TO_METERS_PER_SEC2);
-        }
-
-        // std::thread::sleep(std::time::Duration::from_millis(10));
-        let (roll, pitch, yaw) = quat.euler_angles();
-        // Do something with the updated state quaternion
-        print!("DATA COUNT: {}\t\tLoop Count: {}\n ", data_count, loop_count);
-        print!("EFA:\t\t {:0.5}\t\t {:0.5}\t\t {:0.5}\n", earth_frame_accelerometer[0], earth_frame_accelerometer[1], earth_frame_accelerometer[2] - 1.0);
-        print!("x_vel={:0.5}\t\t y_vel={:0.5}\t\t z_vel={:0.5}\n", velocity_x * G_TO_METERS_PER_SEC2, velocity_y * G_TO_METERS_PER_SEC2, velocity_z * G_TO_METERS_PER_SEC2);
-        print!("x_pos={:0.5}\t\t y_pos={:0.5}\t\t z_pos={:0.5}\n", pos_x * G_TO_METERS_PER_SEC2 * 100.0, pos_y * G_TO_METERS_PER_SEC2 * 100.0, pos_z * G_TO_METERS_PER_SEC2 * 100.0);
-        print!("pitch={:0.5}\t\t roll={:0.5}\t\t yaw={:0.5}", pitch * 180.0 /f64::consts::PI, roll * 180.0 /f64::consts::PI, yaw * 180.0 /f64::consts::PI);
-        print!("\x1b[F\x1b[F\x1b[F\x1b[F");
-        stdout().flush().expect("Flush std out failed");
-        sync_connection.sync_pose(Pose {
-            orientation: Quaternion {
-                x: quat[0],
-                y: quat[1],
-                z: quat[2],
-                w: quat[3],
-            },
-            position: Point {
-                x: pos_x as f64,
-                y: pos_y as f64,
-                z: pos_z as f64,
+                // Run inputs through AHRS filter (gyroscope must be radians/s)
+                let quat = match ahrs.update_imu(
+                    &(gyroscope * (f64::consts::PI / 180.0)),
+                    &accelerometer,
+                    //&magnetometer,
+                ) {
+                    Ok(val) => *val,
+                    Err(_) => {
+                        continue;
+                    }
+                };
+                let result_quat = quat.inverse();
+                imu_messages.push(Imu {
+                    header: Header {
+                       stamp: timestamp,
+                       frame_id: String::from("qbot")
+                    },
+                    orientation: Quaternion {
+                        x: result_quat[0],
+                        y: result_quat[1],
+                        z: result_quat[2],
+                        w: result_quat[3],
+                    },
+		    orientation_covariance: [
+			0.001745329252, 0.0, 0.0,
+			0.0, 0.001745329252, 0.0,
+			0.0, 0.0, 0.001745329252,
+		    ],
+                    angular_velocity: ImuVector3::from(gyroscope * (f64::consts::PI / 180.0)), 
+		    angular_velocity_covariance: [
+			0.001745329252, 0.0, 0.0,
+			0.0, 0.001745329252, 0.0,
+			0.0, 0.0, 0.001745329252,
+		    ],
+                    linear_acceleration: ImuVector3::from(accelerometer * G_TO_METERS_PER_SEC2),
+		    linear_acceleration_covariance: [
+			0.0784532, 0.0, 0.0,
+			0.0, 0.0784532, 0.0,
+			0.0, 0.0, 0.0784532,
+		    ],
+                })
             }
-
-        }).await;
+            sync_connection.sync_imu(&imu_messages).await;
+        }
     }
 }
