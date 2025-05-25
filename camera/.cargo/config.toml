@@ -7,7 +7,7 @@ target = "armv7-unknown-linux-gnueabihf"
 [target.armv7-unknown-linux-gnueabihf]
 # Use the GCC driver instead of ld directly.
 # This often automatically finds libgcc_s and other necessary paths.
-linker = "/home/kylona/Workspaces/rpi_cross_compile/cross-pi-gcc-14.2.0-0/bin/arm-linux-gnueabihf-gcc"
+#linker = "/home/kylona/Workspaces/rpi_cross_compile/cross-pi-gcc-14.2.0-0/bin/arm-linux-gnueabihf-gcc"
 
 # You might not even need rustflags now, try removing or commenting them out first.
 # If you still get errors, you might need to add other flags, but start without this.
@@ -16,5 +16,5 @@ linker = "/home/kylona/Workspaces/rpi_cross_compile/cross-pi-gcc-14.2.0-0/bin/ar
 # ]
 
 [profile.release]         # Modify profile settings via config.
-lto = "fat"
+#lto = "fat"
 
