@@ -1,25 +1,29 @@
 use std::time::{SystemTime, UNIX_EPOCH};
-use libcamera::{CameraManager, Camera, StreamRole, StreamConfiguration, FrameBuffer, Request};
-use libcamera::format::{Format, PixelFormat};
-use libcamera::size::Size;
-use zenoh::{prelude::*, config::Config, Session, Publisher, Bytes};
+use libcamera::camera_manager::{CameraManager};
+use libcamera::stream::{StreamRole};
+use libcamera::pixel_format::{PixelFormat};
+use libcamera::geometry::Size;
+use zenoh::bytes::ZBytes;
+use zenoh::{config::Config};
 use std::error::Error;
 use std::fmt;
 use serde::{Serialize, Deserialize}; // For serializing ROS messages
+use byteorder::LittleEndian;
+use cdr_encoding::to_vec;
 
 // Define the custom error type
 #[derive(Debug)]
 enum CameraError {
-    LibcameraError(libcamera::Error),
     ZenohError(zenoh::Error),
+    IoError(std::io::Error),
     Other(String),
 }
 
 impl fmt::Display for CameraError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CameraError::LibcameraError(e) => write!(f, "Libcamera error: {}", e),
             CameraError::ZenohError(e) => write!(f, "Zenoh error: {}", e),
+            CameraError::IoError(e) => write!(f, "IO error: {}", e),
             CameraError::Other(s) => write!(f, "Camera error: {}", s),
         }
     }
@@ -27,15 +31,15 @@ impl fmt::Display for CameraError {
 
 impl Error for CameraError {}
 
-impl From<libcamera::Error> for CameraError {
-    fn from(e: libcamera::Error) -> Self {
-        CameraError::LibcameraError(e)
-    }
-}
-
 impl From<zenoh::Error> for CameraError {
     fn from(e: zenoh::Error) -> Self {
         CameraError::ZenohError(e)
+    }
+}
+
+impl From<std::io::Error> for CameraError {
+    fn from(e: std::io::Error) -> Self {
+        CameraError::IoError(e)
     }
 }
 
@@ -46,7 +50,6 @@ fn get_timestamp_us() -> u128 {
     duration.as_micros() as u128
 }
 
-// ROS message structs (defined according to your specifications)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Time {
     pub sec: i32,
@@ -69,28 +72,24 @@ pub struct CompressedImage {
 fn main() -> Result<(), CameraError> {
     // 1. Initialize libcamera
     let camera_manager = CameraManager::new()?;
-    camera_manager.load()?;
 
     // Get the camera
-    let camera_ids = camera_manager.camera_ids();
-    if camera_ids.len() != 1 {
+    let cameras = camera_manager.cameras();
+    if cameras.len() != 1 {
         return Err(CameraError::Other(format!(
             "Expected exactly one camera, found {}",
-            camera_ids.len()
+            cameras.len()
         )));
     }
-    let mut camera = camera_manager.get(&camera_ids[0]).ok_or(CameraError::Other("Failed to get camera".to_string()))?;
+    let mut camera = cameras.get(0).unwrap();
 
-    // 2. Configure the camera stream
-    //   * Use MJPEG if libcamera supports it.  Check the libcamera documentation.
-    //   * Set the resolution to 854x480.
     let stream_config = camera.generate_configuration(
         &[StreamRole::VideoRecording],
         Some(Size { width: 854, height: 480 }),
-        Some(PixelFormat::MJPEG), // Try MJPEG.  If not supported, handle the error.
+        Some("jpeg"),
     )?;
 
-    if stream_config.status() == libcamera::Status::Invalid {
+    if stream_config.status() == libcamera::camera::CameraConfigurationStatus::Invalid {
         eprintln!("Invalid stream configuration!");
         return Ok(()); // Or, you could return an error here if MJPEG is essential.
     }
@@ -107,12 +106,11 @@ fn main() -> Result<(), CameraError> {
     for buffer in &frame_buffers {
         camera.add_frame_buffer(buffer)?;
     }
-    // 4. Start the camera
-    camera.start()?;
+    let active_camera = camera.activate()?;
 
     // 5. Zenoh setup
     let config = Config::default();
-    let zenoh_session = zenoh::open(config)?;
+    let zenoh_session = zenoh::open(config).await.unwrap();
     let publisher = zenoh_session.declare_publisher("qbot/camera/compressed_image")?; // Use the compressed image topic
 
 
@@ -151,23 +149,26 @@ fn main() -> Result<(), CameraError> {
                 data: image_bytes,
             };
 
-            // Serialize the message
-            let serialized_data = zenoh::serialization::serialize(&compressed_image_msg, zenoh::encoding::KeyExpr::from("application/cdr"))
-                .map_err(|e| CameraError::ZenohError(e))?;
+            // Create the 4-byte CDR_LE header
+            let zenoh_header: [u8; 4] = [0x00, 0x01, 0x00, 0x00]; // CDR_LE identifier + zero options
+
+            // Create the actual payload
+            let mut payload_bytes = to_vec::<CompressedImage, LittleEndian>(&compressed_image_msg).unwrap();
+
+            // Prepend the header to the payload bytes
+            let mut full_message_bytes = Vec::with_capacity(zenoh_header.len() + payload_bytes.len());
+            full_message_bytes.extend_from_slice(&zenoh_header);
+            full_message_bytes.append(&mut payload_bytes); // Note: append moves elements
+
+            // Convert to ZBytes for Zenoh
+            let zbytes_payload: ZBytes = full_message_bytes.into();
 
             // 9. Publish with Zenoh
-            publisher.put(serialized_data)?;
+            publisher.put(zbytes_payload)?;
             println!("Published compressed image at timestamp (us): {}", capture_timestamp_us);
 
-            // 10. Requeue the buffer.
-            camera.queue_frame_buffer(&captured_buffer)?;
         } else {
             eprintln!("No image planes available.");
         }
     }
-    // 11. Cleanup
-    camera.stop()?;
-    camera.close()?;
-    camera_manager.close()?;
-    Ok(())
 }
