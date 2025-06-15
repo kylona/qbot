@@ -9,3 +9,4 @@ cdr-encoding = "0.10.2"
 serde = "1.0.219"
 byteorder = "1.5.0"
 libcamera = { git = "https://github.com/fishrockz/libcamera-rs/", branch = "willsalmon/0.5.0" }
+image = "0.25.6"
