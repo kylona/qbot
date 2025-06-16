@@ -288,7 +288,7 @@ fn main() {
         .expect("Unable to create output file");
     let mut count = 0;
     let mut jpeg = Vec::new();
-    while count < 1 {
+    while count < 10 {
 
         println!("Waiting for camera request execution");
         let mut req = rx.recv_timeout(Duration::from_secs(2)).expect("Camera request failed");
@@ -312,7 +312,7 @@ fn main() {
 				println!("Written {} bytes to buffer", bytes_used);
 
         file.write_all(&jpeg).unwrap();
-				println!("Written {} bytes to {}", bytes_used, &filename);
+				println!("Written {} bytes to {}", jpeg.len(), &filename);
 
         // Recycle the request back to the camera for execution
         req.reuse(ReuseFlag::REUSE_BUFFERS);
