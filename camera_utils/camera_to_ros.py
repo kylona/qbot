@@ -27,7 +27,7 @@ if __name__ == '__main__':
     try:
         width = 854 
         height = 480
-        capture_interval = 1/50
+        capture_interval = 1/30
         ros_topic = "qbot/camera/compressed_image"
         image_format = "jpeg"  
         frame_id = "camera_optical_frame"
