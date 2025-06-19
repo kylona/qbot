@@ -15,12 +15,27 @@ find_package(image_transport REQUIRED)
 
 add_executable(image_decompressor src/image_decompressor.cpp)
 
+# Find OpenCV
+# Add features2d component for ORB and drawKeypoints
+find_package(OpenCV REQUIRED COMPONENTS core highgui imgproc features2d)
+
+# Include directories
+include_directories(
+  include
+  ${OpenCV_INCLUDE_DIRS} # Include OpenCV's header directories
+)
+
 # Use ament_target_dependencies to handle includes and linking
 ament_target_dependencies(image_decompressor
   rclcpp
   sensor_msgs
   cv_bridge
   image_transport
+)
+
+# Link against OpenCV libraries
+target_link_libraries(image_decompressor
+  ${OpenCV_LIBS} # This variable contains all the necessary OpenCV libraries
 )
 
 # Note: No need for target_link_libraries if using ament_target_dependencies
