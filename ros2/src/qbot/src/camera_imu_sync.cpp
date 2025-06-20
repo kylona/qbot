@@ -34,6 +34,10 @@ struct MotionData {
   double motion;
 };
 
+// Define motion thresholds
+const double CAMERA_MOTION_THRESHOLD = 1.0; // Pixels
+const double IMU_MOTION_THRESHOLD = 1.0;    // Radians/sec
+
 class CameraImuSync : public rclcpp::Node
 {
 public:
@@ -60,9 +64,11 @@ public:
     // Start a separate thread for user input to avoid blocking the ROS spin
     input_thread_ = std::thread(&CameraImuSync::handleInput, this);
 
-    RCLCPP_INFO(this->get_logger(), "ORB Detector Node started.");
+    RCLCPP_INFO(this->get_logger(), "CameraImuSync Node started.");
     RCLCPP_INFO(this->get_logger(), "Subscribing to image topic: %s", image_subscription_->get_topic_name());
     RCLCPP_INFO(this->get_logger(), "Subscribing to IMU topic: %s", imu_subscription_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "Camera motion log threshold: %.2f pixels", CAMERA_MOTION_THRESHOLD);
+    RCLCPP_INFO(this->get_logger(), "IMU motion log threshold: %.2f rad/s", IMU_MOTION_THRESHOLD);
     RCLCPP_INFO(this->get_logger(), "Press ENTER in this console to save the latest ORB image as ORB.jpeg");
   }
 
@@ -114,7 +120,10 @@ private:
               camera_motion = distance;
             }
           }
-          RCLCPP_INFO(this->get_logger(), "Camera Motion (Min Pixels Moved): %.4f", camera_motion);
+          // Log only if motion is above threshold
+          if (camera_motion > CAMERA_MOTION_THRESHOLD) {
+            RCLCPP_INFO(this->get_logger(), "Camera Motion (Min Pixels Moved): %.4f", camera_motion);
+          }
         } else {
           RCLCPP_WARN(this->get_logger(), "No matches found between frames.");
         }
@@ -135,7 +144,7 @@ private:
       latest_orb_image_ = image_with_features.clone(); // Make a deep copy
       latest_orb_image_ptr_ = &latest_orb_image_; // Update the pointer
 
-      // Buffer image data
+      // Buffer image data (always save, regardless of logging)
       if (image_buffer_.size() >= 250) {
         image_buffer_.pop_front(); // Remove the oldest element
       }
@@ -159,9 +168,12 @@ private:
       std::pow(msg->angular_velocity.y, 2) +
       std::pow(msg->angular_velocity.z, 2));
 
-    RCLCPP_INFO(this->get_logger(), "IMU Motion (Angular Velocity Norm): %.4f", imu_motion);
+    // Log only if motion is above threshold
+    if (imu_motion > IMU_MOTION_THRESHOLD) {
+      RCLCPP_INFO(this->get_logger(), "IMU Motion (Angular Velocity Norm): %.4f", imu_motion);
+    }
 
-    // Buffer IMU data
+    // Buffer IMU data (always save, regardless of logging)
     if (imu_buffer_.size() >= 500) {
       imu_buffer_.pop_front(); // Remove the oldest element
     }
