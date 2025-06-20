@@ -3,6 +3,7 @@
 
 // Message types
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/imu.hpp> // Include for IMU messages
 #include <sensor_msgs/image_encodings.hpp> // For image_encodings::BGR8
 
 // cv_bridge
@@ -17,6 +18,9 @@
 #include <mutex>         // For std::mutex, std::unique_lock
 #include <vector>        // For std::vector
 #include <limits>        // For std::numeric_limits
+#include <cmath>         // For std::sqrt, std::pow
+#include <deque>         // For std::deque
+#include <iomanip>       // For std::fixed, std::setprecision
 
 // OpenCV headers for ORB and drawing
 #include <opencv2/features2d.hpp> // For ORB, BFMatcher
@@ -24,11 +28,17 @@
 #include <opencv2/highgui.hpp>    // For cv::imwrite
 #include <opencv2/calib3d.hpp>    // For findHomography (though not directly used for motion here, useful for pose estimation)
 
-class ORBDetector : public rclcpp::Node
+// Structure to hold timestamped motion data
+struct MotionData {
+  rclcpp::Time timestamp;
+  double motion;
+};
+
+class CameraImuSync : public rclcpp::Node
 {
 public:
-  ORBDetector()
-  : Node("orb_detector"),
+  CameraImuSync()
+  : Node("camera_imu_sync"),
     latest_orb_image_ptr_(nullptr), // Initialize shared_ptr to nullptr
     previous_keypoints_(),          // Initialize empty
     previous_descriptors_()         // Initialize empty
@@ -36,21 +46,27 @@ public:
     image_subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
       "/qbot/camera/image", // Subscribe to the uncompressed image topic
       10,
-      std::bind(&ORBDetector::imageCallback, this, std::placeholders::_1));
+      std::bind(&CameraImuSync::imageCallback, this, std::placeholders::_1));
+
+    imu_subscription_ = this->create_subscription<sensor_msgs::msg::Imu>(
+      "/qbot/imu",
+      10,
+      std::bind(&CameraImuSync::imuCallback, this, std::placeholders::_1));
 
     // Initialize ORB detector and BFMatcher
     orb_ = cv::ORB::create();
     matcher_ = cv::BFMatcher::create(cv::NORM_HAMMING, true); // Cross-check matching
 
     // Start a separate thread for user input to avoid blocking the ROS spin
-    input_thread_ = std::thread(&ORBDetector::handleInput, this);
+    input_thread_ = std::thread(&CameraImuSync::handleInput, this);
 
     RCLCPP_INFO(this->get_logger(), "ORB Detector Node started.");
-    RCLCPP_INFO(this->get_logger(), "Subscribing to: %s", image_subscription_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "Subscribing to image topic: %s", image_subscription_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "Subscribing to IMU topic: %s", imu_subscription_->get_topic_name());
     RCLCPP_INFO(this->get_logger(), "Press ENTER in this console to save the latest ORB image as ORB.jpeg");
   }
 
-  ~ORBDetector()
+  ~CameraImuSync()
   {
     // Join the input thread to ensure it finishes before the node is destroyed
     if (input_thread_.joinable()) {
@@ -98,7 +114,7 @@ private:
               camera_motion = distance;
             }
           }
-           RCLCPP_INFO(this->get_logger(), "Camera Motion (Min Pixels Moved): %.4f", camera_motion);
+          RCLCPP_INFO(this->get_logger(), "Camera Motion (Min Pixels Moved): %.4f", camera_motion);
         } else {
           RCLCPP_WARN(this->get_logger(), "No matches found between frames.");
         }
@@ -118,6 +134,13 @@ private:
       std::unique_lock<std::mutex> lock(image_mutex_);
       latest_orb_image_ = image_with_features.clone(); // Make a deep copy
       latest_orb_image_ptr_ = &latest_orb_image_; // Update the pointer
+
+      // Buffer image data
+      if (image_buffer_.size() >= 250) {
+        image_buffer_.pop_front(); // Remove the oldest element
+      }
+      image_buffer_.push_back({msg->header.stamp, camera_motion});
+
       RCLCPP_DEBUG(this->get_logger(), "Updated latest ORB image."); // Use DEBUG for less verbose output
     } catch (cv_bridge::Exception& e) {
       RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
@@ -126,6 +149,23 @@ private:
     } catch (...) {
       RCLCPP_ERROR(this->get_logger(), "Unknown exception occurred during ORB detection.");
     }
+  }
+
+  void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+  {
+    // Calculate the norm of the angular velocity
+    double imu_motion = std::sqrt(
+      std::pow(msg->angular_velocity.x, 2) +
+      std::pow(msg->angular_velocity.y, 2) +
+      std::pow(msg->angular_velocity.z, 2));
+
+    RCLCPP_INFO(this->get_logger(), "IMU Motion (Angular Velocity Norm): %.4f", imu_motion);
+
+    // Buffer IMU data
+    if (imu_buffer_.size() >= 500) {
+      imu_buffer_.pop_front(); // Remove the oldest element
+    }
+    imu_buffer_.push_back({msg->header.stamp, imu_motion});
   }
 
   void handleInput()
@@ -160,6 +200,7 @@ private:
   }
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_; // IMU subscription
   cv::Ptr<cv::ORB> orb_;
   cv::Ptr<cv::BFMatcher> matcher_; // For matching descriptors between frames
 
@@ -173,12 +214,16 @@ private:
   // Members to store previous frame's data for motion estimation
   std::vector<cv::KeyPoint> previous_keypoints_;
   cv::Mat previous_descriptors_;
+
+  // Buffers for IMU and Image data
+  std::deque<MotionData> imu_buffer_;
+  std::deque<MotionData> image_buffer_;
 };
 
 int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<ORBDetector>();
+  auto node = std::make_shared<CameraImuSync>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
