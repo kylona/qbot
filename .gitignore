@@ -17,3 +17,7 @@
 */*.o.d
 */CMakeFiles/**
 
+**/camera_env/
+**/opencv_env/
+**/zenohenv/
+
