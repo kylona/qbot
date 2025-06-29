@@ -10,8 +10,8 @@
 #include <cv_bridge/cv_bridge.hpp>
 
 // Standard libraries
-#include <memory>      // For std::make_shared
-#include <functional>  // For std::bind, std::placeholders
+#include <memory>        // For std::make_shared
+#include <functional>    // For std::bind, std::placeholders
 
 // You might need OpenCV headers if you do more manipulation,
 // but cv_bridge includes them implicitly for the conversion functions.
@@ -28,13 +28,14 @@ public:
       10,
       std::bind(&ImageDecompressor::compressedImageCallback, this, std::placeholders::_1));
 
+    // Publish the uncompressed image to a standard topic
     uncompressed_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
-      "/qbot/camera/image",
+      "/qbot/camera/image", // Standard topic name for uncompressed images
       10);
 
     RCLCPP_INFO(this->get_logger(), "Image Decompressor Node started.");
     RCLCPP_INFO(this->get_logger(), "Subscribing to: %s", compressed_subscription_->get_topic_name());
-    RCLCPP_INFO(this->get_logger(), "Publishing to: %s", uncompressed_publisher_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "Publishing uncompressed images to: %s", uncompressed_publisher_->get_topic_name());
   }
 
 private:
@@ -45,21 +46,16 @@ private:
       cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
 
       // Create a new Image message
-      // No need to create a temporary CvImage object again, just use toImageMsg() on the pointer
       sensor_msgs::msg::Image::SharedPtr ros_image = cv_ptr->toImageMsg();
 
-      // The header information should already be part of cv_ptr from toCvCopy
-      // If not, uncomment below:
-      // ros_image->header = msg->header;
-
-      uncompressed_publisher_->publish(*ros_image); // Publish the message data
+      uncompressed_publisher_->publish(*ros_image);
       // RCLCPP_INFO(this->get_logger(), "Published uncompressed image"); // Optional: Can be verbose
     } catch (cv_bridge::Exception& e) {
       RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
     } catch (const std::exception& e) { // Catch other potential standard exceptions
-       RCLCPP_ERROR(this->get_logger(), "Standard exception: %s", e.what());
+      RCLCPP_ERROR(this->get_logger(), "Standard exception: %s", e.what());
     } catch (...) { // Catch any other unknown exceptions
-       RCLCPP_ERROR(this->get_logger(), "Unknown exception occurred during image decompression.");
+      RCLCPP_ERROR(this->get_logger(), "Unknown exception occurred during image decompression.");
     }
   }
 
