@@ -70,10 +70,18 @@ class ZenohOutput(io.BufferedIOBase):
         Returns:
             The number of bytes written (published).
         """
+
+        # This contains the hardware timestamp.
+        metadata = picam2.capture_metadata()
+        
+        # The SensorTimestamp is from the system's monotonic clock (nanoseconds)
+        # This is the most accurate timestamp for when the frame was captured.
+        hw_timestamp_ns = metadata["SensorTimestamp"]
+
         # Create the ROS 2 message timestamp
-        now = time.time()
-        stamp_sec = int(now)
-        stamp_nanosec = int((now - stamp_sec) * 1e9)
+        stamp_sec = hw_timestamp_ns // 1000000000
+        stamp_nanosec = hw_timestamp_ns % 1000000000
+        print("GOT HARDWARE TIMESTAMP:", stamp_sec, stamp_nanosec)
 
         # Assemble the message header
         header = Header(
