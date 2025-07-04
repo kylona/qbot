@@ -148,7 +148,7 @@ impl SyncConnection<'_> {
             self.imu_publisher.put(zbytes_payload).await.unwrap();
 
             // Print to stdout a message indicating the number of bytes send and the timestamp
-            println!("Sent {} bytes at {}", payload_bytes.len(), message.timestamp);
+            print!("Sent IMU frame at {} {}\r", message.header.stamp.sec, message.header.stamp.nsec);
         }
     }
 
