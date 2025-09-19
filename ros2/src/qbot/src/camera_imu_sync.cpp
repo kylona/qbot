@@ -30,11 +30,7 @@
 #include <opencv2/highgui.hpp>    // For cv::imwrite
 #include <opencv2/calib3d.hpp>    // For findHomography (though not directly used for motion here, useful for pose estimation)
 
-// Structure to hold timestamped motion data
-struct MotionData {
-    rclcpp::Time timestamp;
-    double motion;
-};
+#include "cross_correlate_motion.h"
 
 // Define expected sensor frequencies for buffer sizing and gap detection
 const double IMU_FREQUENCY = 100.0; // Hz
@@ -155,7 +151,6 @@ class CameraImuSync : public rclcpp::Node
     size_t active_camera_motion_count_;
     
     double time_offset_;
-
 
 
     void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) {
@@ -323,167 +318,33 @@ class CameraImuSync : public rclcpp::Node
         imu_lock.unlock();
         image_lock.unlock();
         
+        // Create local vectors to store the data for correlation.
+        std::vector<MotionData> imu_data;
+        std::vector<MotionData> camera_data;
+        
         // If we reach here, conditions are met, proceed with correlation
-        performCrossCorrelation();
+        copyBuffersForProcessing(imu_data, camera_data);
+        performCrossCorrelation(imu_data, camera_data);
     }
-    
-    
-    // Function to perform cross-correlation and estimate time offset
-    void performCrossCorrelation() {
-        RCLCPP_DEBUG(this->get_logger(), "Starting cross correlation");
+
+    void copyBuffersForProcessing(std::vector<MotionData> &imu_data, std::vector<MotionData> &camera_data) {
         // --- 1. Extract recent data for correlation (copy all from guaranteed-fresh deques) ---
         
         // Acquire locks for thread-safe access to buffers during copying.
         std::unique_lock<std::mutex> imu_lock(imu_mutex_);
         std::unique_lock<std::mutex> image_lock(image_mutex_); // Use image_mutex_ for image_buffer_
         
-        // Create local vectors to store the data for correlation.
-        std::vector<MotionData> imu_data_for_correlation;
-        std::vector<MotionData> camera_data_for_correlation;
-        
         // Copy ALL data from the deques.
         // Due to discontinuity handling and fixed sizing, the deque *is* our desired window.
-        imu_data_for_correlation.assign(imu_buffer_.begin(), imu_buffer_.end());
-        camera_data_for_correlation.assign(image_buffer_.begin(), image_buffer_.end());
+        imu_data.assign(imu_buffer_.begin(), imu_buffer_.end());
+        camera_data.assign(image_buffer_.begin(), image_buffer_.end());
         
         // Release locks now that data is copied locally into temporary vectors.
         imu_lock.unlock();
         image_lock.unlock();
         
-        // After copying, ensure we have enough data points.
-        // This check is mostly a safeguard, as the trigger condition should largely prevent this.
-        if (imu_data_for_correlation.size() < 2 || camera_data_for_correlation.size() < 2) {
-            RCLCPP_DEBUG(this->get_logger(), "Not enough data copied into correlation vectors (less than 2 samples).");
-            return;
-        }
-        
-        // After copying, ensure we have enough data points in these specific windows to be meaningful.
-        // For example, if a buffer only had 1 point newer than its window start time, it's not enough.
-        // We need at least 2 points to perform meaningful correlation later.
-        if (imu_data_for_correlation.size() < 2 || camera_data_for_correlation.size() < 2) {
-            RCLCPP_DEBUG(this->get_logger(), "Not enough data copied into correlation windows (less than 2 samples after filtering).");
-            return;
-        }
-        
-        // Lambda for Z-score normalization - put it here so it's defined once.
-        auto normalize_vector = [](std::vector<double>& vec) {
-            if (vec.empty()) return;
-            double sum = std::accumulate(vec.begin(), vec.end(), 0.0);
-            double mean = sum / vec.size();
-            double sq_sum = std::inner_product(vec.begin(), vec.end(), vec.begin(), 0.0);
-            double std_dev = std::sqrt(sq_sum / vec.size() - mean * mean);
-            
-            if (std_dev < 1e-9) { // Avoid division by zero if all values are same (or nearly so)
-                std::fill(vec.begin(), vec.end(), 0.0);
-            } else {
-                for (double& val : vec) {
-                    val = (val - mean) / std_dev;
-                }
-            }
-        };
-        
-        // --- 2. Compute Cross-Correlation for various lags ---
-        // Renumbered this section. This is the main correlation loop.
-        double max_correlation = -2.0; // Initialize with a value lower than any possible correlation
-        double best_lag_seconds = 0.0;
-        
-        double lag_max_s = CORRELATION_LAG_MAX.seconds();
-        double lag_step_s = CORRELATION_LAG_STEP.seconds();
-        
-        for (double current_lag_s = -lag_max_s; current_lag_s <= lag_max_s; current_lag_s += lag_step_s) {
-            rclcpp::Duration lag = rclcpp::Duration::from_seconds(current_lag_s);
-            
-            // For each lag, we re-interpolate camera data to align with IMU data.
-            // These vectors will hold the time-aligned and corresponding motion values for the current lag.
-            std::vector<double> current_lag_camera_motions;
-            std::vector<double> current_lag_imu_motions;
-            
-            // Iterate through each IMU point, and for its timestamp (adjusted by lag),
-            // find the corresponding camera motion through interpolation.
-            for (const auto& imu_point : imu_data_for_correlation) {
-                rclcpp::Time target_cam_time = imu_point.timestamp - lag; // Shift target time by lag
-                
-                double current_interpolated_cam_value = 0.0;
-                bool interp_success = false;
-                
-                // Find two nearest camera points to interpolate from for the current target_cam_time
-                auto it_upper = std::upper_bound(camera_data_for_correlation.begin(), camera_data_for_correlation.end(), target_cam_time,
-                [](const rclcpp::Time& ts, const MotionData& md){ return ts < md.timestamp; });
-                
-                if (it_upper != camera_data_for_correlation.end()) {
-                    if (it_upper != camera_data_for_correlation.begin()) {
-                        auto it_lower = std::prev(it_upper);
-                        
-                        // If target time matches lower bound timestamp, use it directly (exact match)
-                        if (it_lower->timestamp == target_cam_time) { // Note: Changed to target_cam_time
-                            current_interpolated_cam_value = it_lower->motion;
-                            interp_success = true;
-                        } else {
-                            double t_lower = it_lower->timestamp.seconds();
-                            double t_upper = it_upper->timestamp.seconds();
-                            double t_target = target_cam_time.seconds();
-                            
-                            if (t_upper - t_lower > 1e-9) { // Avoid division by zero
-                                current_interpolated_cam_value = it_lower->motion +
-                                (it_upper->motion - it_lower->motion) *
-                                ((t_target - t_lower) / (t_upper - t_lower));
-                                interp_success = true;
-                            }
-                        }
-                    } else { // target_cam_time is before or at the first camera_data_for_correlation point
-                        current_interpolated_cam_value = it_upper->motion; // Use the first camera value
-                        interp_success = true;
-                    }
-                } else if (!camera_data_for_correlation.empty()) { // target_cam_time is after the last camera_data_for_correlation point
-                    current_interpolated_cam_value = camera_data_for_correlation.back().motion; // Use the last camera value
-                    interp_success = true;
-                }
-                
-                // Only add data points where interpolation was successful
-                if (interp_success) {
-                    current_lag_camera_motions.push_back(current_interpolated_cam_value);
-                    current_lag_imu_motions.push_back(imu_point.motion); // Keep original IMU motion for this time point
-                }
-            }
-            
-            // Check if enough data points were successfully interpolated for this lag
-            if (current_lag_camera_motions.size() < 2 || current_lag_imu_motions.size() < 2 ||
-            current_lag_camera_motions.size() != current_lag_imu_motions.size()) {
-                RCLCPP_DEBUG(this->get_logger(), "Not enough aligned data points for correlation at lag %.4f. Skipping.", current_lag_s);
-                continue; // Skip this lag if data is insufficient
-            }
-            
-            // Normalize the motion vectors for the current lag before computing correlation
-            std::vector<double> imu_vec_norm = current_lag_imu_motions;
-            std::vector<double> cam_vec_norm = current_lag_camera_motions;
-            normalize_vector(imu_vec_norm);
-            normalize_vector(cam_vec_norm);
-            
-            // Calculate Pearson correlation coefficient
-            double correlation = 0.0;
-            // The check for size() > 1 is already handled by the prior if condition
-            double dot_product = std::inner_product(imu_vec_norm.begin(), imu_vec_norm.end(), cam_vec_norm.begin(), 0.0);
-            correlation = dot_product / imu_vec_norm.size();
-            
-            // Update best correlation and lag
-            if (correlation > max_correlation) {
-                max_correlation = correlation;
-                best_lag_seconds = current_lag_s; // Store the lag that produced the best correlation
-            }
-        }
-        
-        // --- 3. Update and Log Time Offset ---
-        // Renumbered this section.
-        if (max_correlation > 0.5) { // Check if a meaningful correlation was found (e.g., not initial -2.0)
-            time_offset_ = best_lag_seconds; // IMU_time - Camera_time = offset (i.e., add offset to camera time to align with IMU)
-            
-            RCLCPP_INFO(this->get_logger(),
-            "Synchronization updated! New time_offset (IMU - Camera): %.4f seconds (Correlation: %.4f)",
-            time_offset_, max_correlation);
-        } else {
-            RCLCPP_WARN(this->get_logger(), "Could not find a strong correlation for synchronization over the tested lags.");
-        }
     }
+    
     
     
     void handleInput()

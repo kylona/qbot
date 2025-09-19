@@ -15,6 +15,7 @@ const SAMPLE_PERIOD : f64 = 1.0/500.0;
 fn get_timestamp(start_time : SystemTime, sample_num : u64) -> Time {
     let sample_time = start_time + Duration::from_secs_f64(sample_num as f64 * SAMPLE_PERIOD);
     let stamp_time = sample_time.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+
     Time {
        sec: stamp_time.as_secs() as i32,
        nsec: stamp_time.subsec_nanos() as i32,
